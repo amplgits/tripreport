@@ -76,10 +76,25 @@ button, input, select{font-family:inherit;}
 .theme-toggle:hover{background:var(--surface-hover); color:var(--ink);}
 .theme-toggle:active{transform:scale(.92);}
 .theme-toggle svg{width:18px;height:18px;}
+.topbar-actions{display:flex; align-items:center; gap:10px;}
 
+/* ============================================================
+   COLLAPSIBLE FILTERS PANEL
+   ============================================================ */
 .filters{
   background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
-  padding:20px 22px; box-shadow:var(--shadow); margin-bottom:22px;
+  box-shadow:var(--shadow); margin-bottom:22px;
+  transition:margin-bottom .35s ease, border-color .35s ease, box-shadow .35s ease;
+}
+.filters.collapsed{
+  margin-bottom:0;
+  border-color:transparent;
+  box-shadow:none;
+}
+.filters-body{
+  overflow:hidden;
+  padding:20px 22px;
+  transition:height .35s ease, padding-top .35s ease, padding-bottom .35s ease;
 }
 .filter-row{display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end;}
 .filter-row + .filter-row{margin-top:16px; padding-top:16px; border-top:1px dashed var(--line);}
@@ -144,6 +159,24 @@ button, input, select{font-family:inherit;}
 .ms-item.disabled{opacity:.4; pointer-events:none;}
 .ms-item input, .ms-all input{accent-color:var(--loading); width:15px;height:15px; cursor:pointer;}
 .ms-empty{padding:16px; text-align:center; color:var(--ink-faint); font-size:13px;}
+
+/* ============================================================
+   SITE SUMMARY CARDS (beside the Party name filter)
+   ============================================================ */
+.site-cards{display:flex; gap:10px; flex-wrap:wrap;}
+.site-card{
+  --card-accent: var(--loading);
+  background:var(--surface-alt); border:1px solid var(--line); border-radius:var(--radius-sm);
+  padding:9px 14px; min-width:148px; border-left:3px solid var(--card-accent);
+}
+.site-card-title{
+  font-family:var(--font-display); font-weight:700; font-size:12.5px; letter-spacing:.6px;
+  color:var(--ink); margin-bottom:5px; cursor:default;
+}
+.site-card-row{display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-size:12px; color:var(--ink-soft);}
+.site-card-row + .site-card-row{margin-top:3px;}
+.site-card-value{font-family:var(--font-mono); font-weight:700; color:var(--ink); white-space:nowrap;}
+.site-card-value .unit{font-size:9.5px; color:var(--ink-faint); font-weight:500;}
 
 .btn{
   font-family:var(--font-body); font-weight:600; font-size:13.5px; padding:10px 18px;
@@ -239,62 +272,74 @@ tbody tr:hover td{background:var(--surface-alt);}
       </div>
     </div>
     <div class="spacer"></div>
-    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
-      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
-    </button>
+    <div class="topbar-actions">
+      <button class="theme-toggle" id="filtersToggle" title="Collapse filters" aria-label="Collapse filters" aria-expanded="true">
+        <svg id="filtersToggleIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>
+      </button>
+      <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+    </div>
   </header>
 
-  <section class="filters">
-    <div class="filter-row">
-      <div class="field">
-        <label for="dateFrom">From</label>
-        <input type="text" id="dateFrom" placeholder="DD/MM/YYYY" autocomplete="off">
-      </div>
-      <div class="field">
-        <label for="dateTo">To</label>
-        <input type="text" id="dateTo" placeholder="DD/MM/YYYY" autocomplete="off">
-      </div>
-      <div class="field">
-        <label>Mode</label>
-        <div class="mode-group">
-          <label class="chip loading" id="chipLoading">
-            <input type="checkbox" id="cbLoading"><span class="swatch" style="color:var(--loading)"></span>Loading
-          </label>
-          <label class="chip unloading" id="chipUnloading">
-            <input type="checkbox" id="cbUnloading"><span class="swatch" style="color:var(--unloading)"></span>Unloading
-          </label>
+  <section class="filters" id="filtersSection">
+    <div class="filters-body">
+      <div class="filter-row">
+        <div class="field">
+          <label for="dateFrom">From</label>
+          <input type="text" id="dateFrom" placeholder="DD/MM/YYYY" autocomplete="off">
         </div>
-      </div>
-      <div class="field">
-        <label for="siteSelect">Site</label>
-        <select id="siteSelect"><option value="ALL">All sites</option></select>
-      </div>
-      <div class="field">
-        <label>Party name</label>
-        <div class="multiselect" id="partyMultiselect">
-          <button type="button" class="ms-trigger" id="partyTrigger">All parties</button>
-          <div class="ms-panel" id="partyPanel">
-            <div class="ms-search"><input type="text" id="partySearch" placeholder="Search party…"></div>
-            <label class="ms-all"><input type="checkbox" id="partyAllCb" checked> All parties</label>
-            <div class="ms-list" id="partyList"></div>
+        <div class="field">
+          <label for="dateTo">To</label>
+          <input type="text" id="dateTo" placeholder="DD/MM/YYYY" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Mode</label>
+          <div class="mode-group">
+            <label class="chip loading" id="chipLoading">
+              <input type="checkbox" id="cbLoading"><span class="swatch" style="color:var(--loading)"></span>Loading
+            </label>
+            <label class="chip unloading" id="chipUnloading">
+              <input type="checkbox" id="cbUnloading"><span class="swatch" style="color:var(--unloading)"></span>Unloading
+            </label>
           </div>
         </div>
+        <div class="field">
+          <label for="siteSelect">Site</label>
+          <select id="siteSelect"><option value="ALL">All sites</option></select>
+        </div>
+        <div class="field">
+          <label>Party name</label>
+          <div class="multiselect" id="partyMultiselect">
+            <button type="button" class="ms-trigger" id="partyTrigger">All parties</button>
+            <div class="ms-panel" id="partyPanel">
+              <div class="ms-search"><input type="text" id="partySearch" placeholder="Search party…"></div>
+              <label class="ms-all"><input type="checkbox" id="partyAllCb" checked> All parties</label>
+              <div class="ms-list" id="partyList"></div>
+            </div>
+          </div>
+        </div>
+        <div class="site-cards" id="siteCards"></div>
       </div>
-    </div>
-    <div class="filter-row">
-      <button class="btn" id="clearBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
-        Clear filters
-      </button>
-      <button class="btn" id="refreshBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h5M20 20v-5h-5M4.5 9a8 8 0 0114.5-3M19.5 15a8 8 0 01-14.5 3"/></svg>
-        Refresh
-      </button>
-      <div class="spacer"></div>
-      <button class="btn btn-primary" id="uploadBtn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
-        Upload Excel
-      </button>
+      <div class="filter-row">
+        <button class="btn" id="clearBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+          Clear filters
+        </button>
+        <button class="btn" id="refreshBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h5M20 20v-5h-5M4.5 9a8 8 0 0114.5-3M19.5 15a8 8 0 01-14.5 3"/></svg>
+          Refresh
+        </button>
+        <button class="btn" id="pdfBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/><path d="M9 15h6M9 18h4"/></svg>
+          Download PDF
+        </button>
+        <div class="spacer"></div>
+        <button class="btn btn-primary" id="uploadBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
+          Upload Excel
+        </button>
+      </div>
     </div>
   </section>
 
@@ -305,23 +350,23 @@ tbody tr:hover td{background:var(--surface-alt);}
       <p>Pick a From and To date, then choose Loading or Unloading, to bring up the register.</p>
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none;">
-      <table>
+      <table id="reportTable">
         <colgroup>
           <col style="width:200px">
           <col style="width:90px">
-          <col style="width:115px">
-          <col style="width:125px">
-          <col style="width:125px">
-          <col style="width:135px">
+          <col style="width:90px">
+          <col style="width:130px">
+          <col style="width:130px">
+          <col style="width:180px">
         </colgroup>
         <thead>
-          <tr>
+          <tr id="tableHeadRow">
             <th>Party name</th>
             <th class="num">Trips</th>
+            <th class="num">Trucks</th>
             <th class="num">Loading qty</th>
             <th class="num">Avg loading</th>
-            <th class="num">Unloading qty</th>
-            <th class="num">Avg unloading</th>
+            <th class="num">Avg trips/truck</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -339,12 +384,32 @@ tbody tr:hover td{background:var(--surface-alt);}
 <div class="toast" id="toast"><div class="spin"></div><p id="toastMsg"></p></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 /* =================================================================
    CONFIG
    ================================================================= */
 const FIREBASE_URL = 'https://projecttrip-b7b47-default-rtdb.asia-southeast1.firebasedatabase.app';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ2LHsQIIoa5H-anPJW3sTL6yW6S_e1sv1dRIJApMfY5aJigEqAGSEoPYr9R6wIV74/exec';
+
+// Known site name → short code shown on the summary cards and in the PDF.
+// Any site not listed here falls back to auto-generated initials, so a
+// new site added later still gets a reasonable short code automatically.
+const SITE_ABBREVIATIONS = {
+  'G. BEGUNIA OC PATCH': 'GBOCP',
+  'GOURANGDIH EXPANSION OCP': 'GEOCP'
+};
+function abbreviateSite(name){
+  if (SITE_ABBREVIATIONS[name]) return SITE_ABBREVIATIONS[name];
+  const initials = (name || '').split(/\s+/)
+    .map(w => w.replace(/[^A-Za-z]/g, ''))
+    .filter(Boolean)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase();
+  return initials || name;
+}
 
 /* =================================================================
    STATE
@@ -370,6 +435,46 @@ function applyTheme(t){
 applyTheme(localStorage.getItem('lsc_theme') || 'light');
 themeToggle.addEventListener('click', () => {
   applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+/* =================================================================
+   COLLAPSIBLE FILTERS PANEL
+   ================================================================= */
+const filtersSection = document.getElementById('filtersSection');
+const filtersBody = document.querySelector('.filters-body');
+const filtersToggle = document.getElementById('filtersToggle');
+const filtersToggleIcon = document.getElementById('filtersToggleIcon');
+const ICON_MINUS = '<path d="M5 12h14"/>';
+const ICON_PLUS = '<path d="M12 5v14M5 12h14"/>';
+let filtersCollapsed = false;
+
+// Start expanded with overflow visible so the Party dropdown (and any
+// other popover) isn't clipped by the collapse container while it's open.
+filtersBody.style.overflow = 'visible';
+
+filtersToggle.addEventListener('click', () => {
+  filtersCollapsed = !filtersCollapsed;
+
+  if (filtersCollapsed){
+    // clip immediately, then animate the real measured height down to 0
+    filtersBody.style.overflow = 'hidden';
+    filtersBody.style.height = filtersBody.scrollHeight + 'px';
+    requestAnimationFrame(() => { filtersBody.style.height = '0px'; });
+  } else {
+    filtersBody.style.overflow = 'hidden';
+    filtersBody.style.height = filtersBody.scrollHeight + 'px';
+    filtersBody.addEventListener('transitionend', function onOpen(e){
+      if (e.propertyName !== 'height') return;
+      filtersBody.style.height = 'auto';
+      filtersBody.style.overflow = 'visible';
+      filtersBody.removeEventListener('transitionend', onOpen);
+    });
+  }
+
+  filtersSection.classList.toggle('collapsed', filtersCollapsed);
+  filtersToggleIcon.innerHTML = filtersCollapsed ? ICON_PLUS : ICON_MINUS;
+  filtersToggle.setAttribute('aria-expanded', String(!filtersCollapsed));
+  filtersToggle.title = filtersCollapsed ? 'Expand filters' : 'Collapse filters';
 });
 
 /* =================================================================
@@ -512,6 +617,70 @@ function computeFilterOptions(){
 
   renderPartyList(partySearch.value);
   updatePartyTriggerLabel();
+  renderSiteCards();
+}
+
+/* =================================================================
+   SITE SUMMARY CARDS
+   ================================================================= */
+/**
+ * One card per unique site, showing Trip Count and Quantity. These cards
+ * are independent of the Site/Party filters (they always cover every
+ * party at that site) so they read as a stable overview:
+ *   - When a full date range + mode is selected, they show trips and the
+ *     mode-relevant quantity for that window (matching the main table).
+ *   - When the date range or mode isn't set yet, they fall back to an
+ *     all-time total (loading + unloading combined) so the cards are
+ *     never empty.
+ */
+function renderSiteCards(){
+  const container = document.getElementById('siteCards');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!uniqueSites.length) return;
+
+  const gateOpen = filterState.from && filterState.to && filterState.mode;
+  let fromMs, toMs, dateField, qtyField, qtyLabel;
+
+  if (gateOpen){
+    fromMs = new Date(filterState.from.getFullYear(), filterState.from.getMonth(), filterState.from.getDate()).getTime();
+    toMs = new Date(filterState.to.getFullYear(), filterState.to.getMonth(), filterState.to.getDate()).getTime();
+    dateField = filterState.mode === 'loading' ? 'loadingKey' : 'unloadingKey';
+    qtyField = filterState.mode === 'loading' ? 'loadingQty' : 'unloadingQty';
+    qtyLabel = filterState.mode === 'loading' ? 'Loading qty' : 'Unloading qty';
+  } else {
+    qtyLabel = 'Total qty';
+  }
+
+  uniqueSites.forEach(site => {
+    let trips = 0, qty = 0;
+
+    allTrips.forEach(t => {
+      if (t.source !== site) return;
+      if (gateOpen){
+        const key = t[dateField];
+        if (!key) return;
+        const ms = keyToDate(key).getTime();
+        if (ms < fromMs || ms > toMs) return;
+        trips += 1;
+        qty += (t[qtyField] || 0);
+      } else {
+        trips += 1;
+        qty += (t.loadingQty || 0) + (t.unloadingQty || 0);
+      }
+    });
+
+    const hue = hashHue(site);
+    const card = document.createElement('div');
+    card.className = 'site-card';
+    card.style.setProperty('--card-accent', `hsl(${hue},55%,45%)`);
+    card.innerHTML = `
+      <div class="site-card-title" title="${escapeHtml(site)}">${escapeHtml(abbreviateSite(site))}</div>
+      <div class="site-card-row"><span>Trips</span><span class="site-card-value">${trips}</span></div>
+      <div class="site-card-row"><span>${qtyLabel}</span><span class="site-card-value">${qty.toFixed(2)}<span class="unit"> MT</span></span></div>
+    `;
+    container.appendChild(card);
+  });
 }
 
 /* =================================================================
@@ -520,6 +689,8 @@ function computeFilterOptions(){
 function keyToDate(key){ const [d,m,y] = key.split('/').map(Number); return new Date(y, m-1, d); }
 
 function applyFilters(){
+  renderSiteCards();
+
   const emptyState = document.getElementById('emptyState');
   const tableWrap = document.getElementById('tableWrap');
   const tableFooter = document.getElementById('tableFooter');
@@ -567,19 +738,47 @@ function applyFilters(){
 }
 
 /**
- * Groups the filtered trip rows by party and renders one summary row
- * per party: trip count, loading sum + average, unloading sum + average.
- * Average = sum / number of trips for that party (per the current filters).
+ * Groups the filtered trip rows by party and renders one summary row per
+ * party: trip count, unique truck count, the mode-relevant quantity sum
+ * + average, and average trips per truck per day.
+ *
+ * The Loading/Unloading quantity columns are mode-driven — since the date
+ * filter itself already requires exactly one mode to be selected, the
+ * same two columns just relabel and recolor themselves rather than
+ * showing both pairs at once.
+ *
+ * Avg trips/truck = trips ÷ (days in the selected date range × unique
+ * trucks for that party).
  */
 function renderTable(rows){
+  const mode = filterState.mode;
+  const qtyLabel = mode === 'loading' ? 'Loading qty' : 'Unloading qty';
+  const avgQtyLabel = mode === 'loading' ? 'Avg loading' : 'Avg unloading';
+  const qtyColorClass = mode === 'loading' ? 'loading-col' : 'unloading-col';
+
+  document.getElementById('tableHeadRow').innerHTML = `
+    <th>Party name</th>
+    <th class="num">Trips</th>
+    <th class="num">Trucks</th>
+    <th class="num">${qtyLabel}</th>
+    <th class="num">${avgQtyLabel}</th>
+    <th class="num">Avg trips/truck</th>
+  `;
+
+  const fromD = filterState.from, toD = filterState.to;
+  const fromMid = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate());
+  const toMid = new Date(toD.getFullYear(), toD.getMonth(), toD.getDate());
+  const days = Math.max(1, Math.round((toMid - fromMid) / 86400000) + 1);
+
   const groupMap = new Map();
   rows.forEach(r => {
     const key = r.party || '(No party)';
-    if (!groupMap.has(key)) groupMap.set(key, { party: key, trips: 0, loadSum: 0, unloadSum: 0 });
+    if (!groupMap.has(key)) groupMap.set(key, { party: key, trips: 0, loadSum: 0, unloadSum: 0, trucks: new Set() });
     const g = groupMap.get(key);
     g.trips += 1;
     g.loadSum += (r.loadingQty || 0);
     g.unloadSum += (r.unloadingQty || 0);
+    if (r.truckNo) g.trucks.add(r.truckNo);
   });
 
   const groups = [...groupMap.values()].sort((a, b) => a.party.localeCompare(b.party));
@@ -588,16 +787,18 @@ function renderTable(rows){
   body.innerHTML = '';
   groups.forEach(g => {
     const hue = hashHue(g.party);
-    const avgLoad = g.trips ? g.loadSum / g.trips : 0;
-    const avgUnload = g.trips ? g.unloadSum / g.trips : 0;
+    const truckCount = g.trucks.size;
+    const qtySum = mode === 'loading' ? g.loadSum : g.unloadSum;
+    const avgQty = g.trips ? qtySum / g.trips : 0;
+    const avgTripsPerTruck = truckCount ? g.trips / (days * truckCount) : 0;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(g.party)}</td>
       <td class="qty">${g.trips}</td>
-      <td class="qty loading-col">${g.loadSum.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty loading-col">${avgLoad.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty unloading-col">${g.unloadSum.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty unloading-col">${avgUnload.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty">${truckCount}</td>
+      <td class="qty ${qtyColorClass}">${qtySum.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty ${qtyColorClass}">${avgQty.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty">${avgTripsPerTruck.toFixed(2)}</td>
     `;
     body.appendChild(tr);
   });
@@ -611,6 +812,67 @@ function hashHue(str){
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function formatDMY(d){
+  const dd = ('0' + d.getDate()).slice(-2);
+  const mm = ('0' + (d.getMonth() + 1)).slice(-2);
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+/* =================================================================
+   PDF EXPORT
+   ================================================================= */
+document.getElementById('pdfBtn').addEventListener('click', () => {
+  const tableWrap = document.getElementById('tableWrap');
+  if (tableWrap.style.display === 'none'){
+    showToast('Apply filters to bring up the table before exporting.', 'error');
+    return;
+  }
+  if (typeof window.jspdf === 'undefined'){
+    showToast('PDF library failed to load — check your connection and try again.', 'error');
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+
+  const siteLabel = filterState.site === 'ALL' ? 'All Sites' : filterState.site;
+  const dateLabel = (filterState.from && filterState.to)
+    ? `${formatDMY(filterState.from)} – ${formatDMY(filterState.to)}`
+    : 'All dates';
+  const modeLabel = filterState.mode === 'loading' ? 'Loading' : filterState.mode === 'unloading' ? 'Unloading' : '—';
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(16, 24, 32);
+  doc.text('Transporting Report', 40, 42);
+
+  // highlighted Site + Date band, echoing the app's own loading/unloading colors
+  doc.setFillColor(14, 156, 143);
+  doc.roundedRect(40, 58, 230, 26, 4, 4, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(11);
+  doc.text(`SITE: ${siteLabel}`, 52, 75);
+
+  doc.setFillColor(232, 131, 15);
+  doc.roundedRect(282, 58, 260, 26, 4, 4, 'F');
+  doc.text(`DATE: ${dateLabel}`, 294, 75);
+
+  doc.setTextColor(84, 98, 107);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text(`Mode: ${modeLabel}`, 40, 102);
+
+  doc.autoTable({
+    html: '#reportTable',
+    startY: 116,
+    styles: { fontSize: 9, cellPadding: 6, textColor: [16, 24, 32] },
+    headStyles: { fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [247, 249, 248] }
+  });
+
+  const fileDate = new Date().toISOString().slice(0, 10);
+  doc.save(`transporting-report_${fileDate}.pdf`);
+});
 
 /* =================================================================
    UPLOAD
