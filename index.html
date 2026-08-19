@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trip Report</title>
+<title>Transporting Report</title>
 <link rel="icon" type="image/png" href="https://wingzinfotech.in/img/ampl.jpg">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,9 +12,6 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
 
 <style>
-/* ============================================================
-   TOKENS
-   ============================================================ */
 :root{
   --bg:#F1F4F3; --surface:#FFFFFF; --surface-alt:#E7ECEB; --surface-hover:#DEE5E3;
   --ink:#101820; --ink-soft:#54626B; --ink-faint:#8B979E;
@@ -52,9 +49,6 @@ body{
 button, input, select{font-family:inherit;}
 .app{max-width:1180px;margin:0 auto;padding:0 20px 64px;}
 
-/* ============================================================
-   TOPBAR
-   ============================================================ */
 .topbar{
   position:sticky; top:0; z-index:40; background:var(--bg);
   padding:20px 0 16px; display:flex; align-items:center; gap:16px;
@@ -74,21 +68,6 @@ button, input, select{font-family:inherit;}
 
 .spacer{flex:1;}
 
-.trip-readout{
-  display:flex; align-items:center; gap:10px; background:#0D1519; border:1px solid #1F2C31;
-  padding:8px 16px; border-radius:11px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.02), var(--shadow);
-  position:relative; overflow:hidden;
-}
-.trip-readout::before{
-  content:''; position:absolute; inset:0; background:var(--grad-hero); opacity:.10;
-}
-.trip-readout .dot{width:7px;height:7px;border-radius:50%;background:var(--loading);box-shadow:0 0 8px var(--loading);flex:none;}
-.trip-readout .dot.off{background:var(--ink-faint);box-shadow:none;}
-.trip-readout .num{font-family:var(--font-mono);font-weight:700;font-size:20px;color:#EAF7F5;letter-spacing:.5px;line-height:1;}
-.trip-readout .lbl{font-size:9.5px;color:#8FA3A8;letter-spacing:1.2px;text-transform:uppercase;line-height:1;}
-.trip-readout.pulse .num{animation:pulseNum .5s ease;}
-@keyframes pulseNum{0%{transform:scale(1);}35%{transform:scale(1.18);color:#8AF0E4;}100%{transform:scale(1);}}
-
 .theme-toggle{
   width:40px;height:40px;border-radius:11px;border:1px solid var(--line-strong);
   background:var(--surface); cursor:pointer; display:flex;align-items:center;justify-content:center;
@@ -98,9 +77,6 @@ button, input, select{font-family:inherit;}
 .theme-toggle:active{transform:scale(.92);}
 .theme-toggle svg{width:18px;height:18px;}
 
-/* ============================================================
-   FILTER PANEL
-   ============================================================ */
 .filters{
   background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
   padding:20px 22px; box-shadow:var(--shadow); margin-bottom:22px;
@@ -123,7 +99,6 @@ button, input, select{font-family:inherit;}
 }
 .field select{appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0L5 6L10 0' fill='none' stroke='%2354626B' stroke-width='1.5'/></svg>"); background-repeat:no-repeat; background-position:right 12px center; padding-right:30px; cursor:pointer;}
 
-/* mode chips */
 .mode-group{display:flex; gap:10px;}
 .chip{
   display:flex; align-items:center; gap:8px; padding:9px 15px; border-radius:999px;
@@ -139,7 +114,6 @@ button, input, select{font-family:inherit;}
 .chip.unloading.active .swatch{opacity:1;}
 .chip:hover{border-color:var(--ink-faint);}
 
-/* truck multiselect */
 .multiselect{position:relative;}
 .ms-trigger{
   font-family:var(--font-mono); font-size:14px; padding:9px 30px 9px 12px; border-radius:var(--radius-sm);
@@ -171,7 +145,6 @@ button, input, select{font-family:inherit;}
 .ms-item input, .ms-all input{accent-color:var(--loading); width:15px;height:15px; cursor:pointer;}
 .ms-empty{padding:16px; text-align:center; color:var(--ink-faint); font-size:13px;}
 
-/* buttons */
 .btn{
   font-family:var(--font-body); font-weight:600; font-size:13.5px; padding:10px 18px;
   border-radius:var(--radius-sm); border:1px solid var(--line-strong); background:var(--surface);
@@ -185,9 +158,6 @@ button, input, select{font-family:inherit;}
 .btn-primary:hover{filter:brightness(1.06); color:#fff;}
 .btn svg{width:15px;height:15px;}
 
-/* ============================================================
-   RESULTS
-   ============================================================ */
 .results{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;}
 
 .empty-state{padding:70px 24px; text-align:center; color:var(--ink-faint);}
@@ -197,9 +167,6 @@ button, input, select{font-family:inherit;}
 
 .table-wrap{
   overflow-x:auto; overflow-y:auto; max-height:64vh;
-  /* an explicit, bounded scroll container so thead's position:sticky has
-     something real to stick within — without this, the header scrolls
-     away with the rest of the page instead of staying put. */
 }
 table{border-collapse:collapse; font-size:14px; table-layout:fixed;}
 thead th{
@@ -221,16 +188,12 @@ tbody tr:hover td{background:var(--surface-alt);}
 .qty.unloading-col{color:var(--unloading-ink);}
 .qty .unit{font-size:10.5px; color:var(--ink-faint); font-weight:500; margin-left:3px;}
 .qty.blank{color:var(--ink-faint); font-weight:400;}
-.truck-tag{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-faint); display:block; margin-top:2px;}
 
 .table-footer{
   padding:12px 20px; font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line);
   display:flex; justify-content:space-between; background:var(--surface-alt);
 }
 
-/* ============================================================
-   UPLOAD TOAST
-   ============================================================ */
 .toast{
   position:fixed; bottom:24px; right:24px; background:var(--surface); border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:14px 18px; display:flex;
@@ -244,7 +207,6 @@ tbody tr:hover td{background:var(--surface-alt);}
 .toast p{margin:0; font-size:13px; color:var(--ink); line-height:1.4;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* flatpickr reskin */
 .flatpickr-calendar{background:var(--surface)!important; border:1px solid var(--line-strong)!important; box-shadow:var(--shadow-lg)!important; border-radius:var(--radius-sm)!important; font-family:var(--font-body)!important;}
 .flatpickr-months, .flatpickr-weekdays{background:var(--surface-alt)!important;}
 .flatpickr-current-month, .flatpickr-weekday{color:var(--ink)!important;}
@@ -273,17 +235,10 @@ tbody tr:hover td{background:var(--surface-alt);}
     <div class="brand">
       <img src="https://wingzinfotech.in/img/ampl.jpg" alt="" onerror="this.style.display='none'">
       <div class="brand-text">
-        <h1>Trip Report</h1>
+        <h1>Transporting Report</h1>
       </div>
     </div>
     <div class="spacer"></div>
-    <div class="trip-readout" id="tripReadout">
-      <span class="dot off" id="tripDot"></span>
-      <div>
-        <div class="num" id="tripCount">0</div>
-        <div class="lbl">Trips shown</div>
-      </div>
-    </div>
     <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
       <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
     </button>
@@ -315,13 +270,13 @@ tbody tr:hover td{background:var(--surface-alt);}
         <select id="siteSelect"><option value="ALL">All sites</option></select>
       </div>
       <div class="field">
-        <label>Truck no.</label>
-        <div class="multiselect" id="truckMultiselect">
-          <button type="button" class="ms-trigger" id="truckTrigger">All trucks</button>
-          <div class="ms-panel" id="truckPanel">
-            <div class="ms-search"><input type="text" id="truckSearch" placeholder="Search truck no…"></div>
-            <label class="ms-all"><input type="checkbox" id="truckAllCb" checked> All trucks</label>
-            <div class="ms-list" id="truckList"></div>
+        <label>Party name</label>
+        <div class="multiselect" id="partyMultiselect">
+          <button type="button" class="ms-trigger" id="partyTrigger">All parties</button>
+          <div class="ms-panel" id="partyPanel">
+            <div class="ms-search"><input type="text" id="partySearch" placeholder="Search party…"></div>
+            <label class="ms-all"><input type="checkbox" id="partyAllCb" checked> All parties</label>
+            <div class="ms-list" id="partyList"></div>
           </div>
         </div>
       </div>
@@ -352,15 +307,21 @@ tbody tr:hover td{background:var(--surface-alt);}
     <div class="table-wrap" id="tableWrap" style="display:none;">
       <table>
         <colgroup>
-          <col style="width:150px">
-          <col style="width:150px">
-          <col style="width:150px">
+          <col style="width:200px">
+          <col style="width:90px">
+          <col style="width:115px">
+          <col style="width:125px">
+          <col style="width:125px">
+          <col style="width:135px">
         </colgroup>
         <thead>
           <tr>
             <th>Party name</th>
+            <th class="num">Trips</th>
             <th class="num">Loading qty</th>
+            <th class="num">Avg loading</th>
             <th class="num">Unloading qty</th>
+            <th class="num">Avg unloading</th>
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
@@ -380,18 +341,18 @@ tbody tr:hover td{background:var(--surface-alt);}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
 <script>
 /* =================================================================
-   CONFIG — fill these in before deploying
+   CONFIG
    ================================================================= */
 const FIREBASE_URL = 'https://projecttrip-b7b47-default-rtdb.asia-southeast1.firebasedatabase.app';
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ2LHsQIIoa5H-anPJW3sTL6yW6S_e1sv1dRIJApMfY5aJigEqAGSEoPYr9R6wIV74/exec'; // ends in /exec
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ2LHsQIIoa5H-anPJW3sTL6yW6S_e1sv1dRIJApMfY5aJigEqAGSEoPYr9R6wIV74/exec';
 
 /* =================================================================
    STATE
    ================================================================= */
 let allTrips = [];
 let uniqueSites = [];
-let uniqueTrucks = [];
-const filterState = { from: null, to: null, mode: null, site: 'ALL', trucks: new Set(['ALL']) };
+let uniqueParties = [];
+const filterState = { from: null, to: null, mode: null, site: 'ALL', parties: new Set(['ALL']) };
 
 /* =================================================================
    THEME
@@ -424,7 +385,7 @@ const fpTo = flatpickr('#dateTo', {
 });
 
 /* =================================================================
-   MODE CHIPS (mutually exclusive, either can be toggled off)
+   MODE CHIPS
    ================================================================= */
 const cbLoading = document.getElementById('cbLoading');
 const cbUnloading = document.getElementById('cbUnloading');
@@ -449,62 +410,62 @@ const siteSelect = document.getElementById('siteSelect');
 siteSelect.addEventListener('change', () => { filterState.site = siteSelect.value; applyFilters(); });
 
 /* =================================================================
-   TRUCK MULTISELECT
+   PARTY MULTISELECT
    ================================================================= */
-const truckTrigger = document.getElementById('truckTrigger');
-const truckPanel = document.getElementById('truckPanel');
-const truckList = document.getElementById('truckList');
-const truckAllCb = document.getElementById('truckAllCb');
-const truckSearch = document.getElementById('truckSearch');
+const partyTrigger = document.getElementById('partyTrigger');
+const partyPanel = document.getElementById('partyPanel');
+const partyList = document.getElementById('partyList');
+const partyAllCb = document.getElementById('partyAllCb');
+const partySearch = document.getElementById('partySearch');
 
-truckTrigger.addEventListener('click', () => truckPanel.classList.toggle('open'));
+partyTrigger.addEventListener('click', () => partyPanel.classList.toggle('open'));
 document.addEventListener('click', (e) => {
-  if (!document.getElementById('truckMultiselect').contains(e.target)) truckPanel.classList.remove('open');
+  if (!document.getElementById('partyMultiselect').contains(e.target)) partyPanel.classList.remove('open');
 });
 
-function renderTruckList(filterText){
+function renderPartyList(filterText){
   const q = (filterText || '').trim().toUpperCase();
-  truckList.innerHTML = '';
-  const isAll = filterState.trucks.has('ALL');
-  const matches = uniqueTrucks.filter(t => t.toUpperCase().includes(q));
+  partyList.innerHTML = '';
+  const isAll = filterState.parties.has('ALL');
+  const matches = uniqueParties.filter(p => p.toUpperCase().includes(q));
   if (!matches.length){
-    truckList.innerHTML = '<div class="ms-empty">No trucks match</div>';
+    partyList.innerHTML = '<div class="ms-empty">No parties match</div>';
     return;
   }
-  matches.forEach(truck => {
+  matches.forEach(party => {
     const row = document.createElement('label');
     row.className = 'ms-item' + (isAll ? ' disabled' : '');
-    const checked = !isAll && filterState.trucks.has(truck);
-    row.innerHTML = `<input type="checkbox" data-truck="${truck}" ${checked ? 'checked' : ''}> ${truck}`;
-    truckList.appendChild(row);
+    const checked = !isAll && filterState.parties.has(party);
+    row.innerHTML = `<input type="checkbox" data-party="${party}" ${checked ? 'checked' : ''}> ${party}`;
+    partyList.appendChild(row);
   });
-  truckList.querySelectorAll('input[data-truck]').forEach(cb => {
+  partyList.querySelectorAll('input[data-party]').forEach(cb => {
     cb.addEventListener('change', () => {
-      const t = cb.getAttribute('data-truck');
-      if (cb.checked) filterState.trucks.add(t); else filterState.trucks.delete(t);
-      filterState.trucks.delete('ALL');
-      updateTruckTriggerLabel();
+      const p = cb.getAttribute('data-party');
+      if (cb.checked) filterState.parties.add(p); else filterState.parties.delete(p);
+      filterState.parties.delete('ALL');
+      updatePartyTriggerLabel();
       applyFilters();
     });
   });
 }
-truckAllCb.addEventListener('change', () => {
-  if (truckAllCb.checked){
-    filterState.trucks = new Set(['ALL']);
+partyAllCb.addEventListener('change', () => {
+  if (partyAllCb.checked){
+    filterState.parties = new Set(['ALL']);
   } else {
-    filterState.trucks = new Set();
+    filterState.parties = new Set();
   }
-  renderTruckList(truckSearch.value);
-  updateTruckTriggerLabel();
+  renderPartyList(partySearch.value);
+  updatePartyTriggerLabel();
   applyFilters();
 });
-truckSearch.addEventListener('input', () => renderTruckList(truckSearch.value));
+partySearch.addEventListener('input', () => renderPartyList(partySearch.value));
 
-function updateTruckTriggerLabel(){
-  if (filterState.trucks.has('ALL')) truckTrigger.textContent = 'All trucks';
-  else if (filterState.trucks.size === 0) truckTrigger.textContent = 'No trucks selected';
-  else if (filterState.trucks.size === 1) truckTrigger.textContent = [...filterState.trucks][0];
-  else truckTrigger.textContent = filterState.trucks.size + ' trucks selected';
+function updatePartyTriggerLabel(){
+  if (filterState.parties.has('ALL')) partyTrigger.textContent = 'All parties';
+  else if (filterState.parties.size === 0) partyTrigger.textContent = 'No parties selected';
+  else if (filterState.parties.size === 1) partyTrigger.textContent = [...filterState.parties][0];
+  else partyTrigger.textContent = filterState.parties.size + ' parties selected';
 }
 
 /* =================================================================
@@ -515,8 +476,8 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   filterState.from = null; filterState.to = null;
   setMode(null);
   siteSelect.value = 'ALL'; filterState.site = 'ALL';
-  truckAllCb.checked = true; filterState.trucks = new Set(['ALL']);
-  renderTruckList(''); updateTruckTriggerLabel();
+  partyAllCb.checked = true; filterState.parties = new Set(['ALL']);
+  renderPartyList(''); updatePartyTriggerLabel();
   applyFilters();
 });
 document.getElementById('refreshBtn').addEventListener('click', loadData);
@@ -538,10 +499,10 @@ async function loadData(){
 }
 
 function computeFilterOptions(){
-  const sites = new Set(); const trucks = new Set();
-  allTrips.forEach(t => { if (t.source) sites.add(t.source); if (t.truckNo) trucks.add(t.truckNo); });
+  const sites = new Set(); const parties = new Set();
+  allTrips.forEach(t => { if (t.source) sites.add(t.source); if (t.party) parties.add(t.party); });
   uniqueSites = [...sites].sort();
-  uniqueTrucks = [...trucks].sort();
+  uniqueParties = [...parties].sort();
 
   const prevSite = siteSelect.value || 'ALL';
   siteSelect.innerHTML = '<option value="ALL">All sites</option>' +
@@ -549,8 +510,8 @@ function computeFilterOptions(){
   siteSelect.value = uniqueSites.includes(prevSite) ? prevSite : 'ALL';
   filterState.site = siteSelect.value;
 
-  renderTruckList(truckSearch.value);
-  updateTruckTriggerLabel();
+  renderPartyList(partySearch.value);
+  updatePartyTriggerLabel();
 }
 
 /* =================================================================
@@ -562,15 +523,12 @@ function applyFilters(){
   const emptyState = document.getElementById('emptyState');
   const tableWrap = document.getElementById('tableWrap');
   const tableFooter = document.getElementById('tableFooter');
-  const tripReadout = document.getElementById('tripReadout');
-  const tripDot = document.getElementById('tripDot');
 
   const gateOpen = filterState.from && filterState.to && filterState.mode;
   if (!gateOpen){
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
-    setTripCount(0, false);
     return;
   }
 
@@ -584,23 +542,16 @@ function applyFilters(){
     const ms = keyToDate(key).getTime();
     if (ms < fromMs || ms > toMs) return false;
     if (filterState.site !== 'ALL' && t.source !== filterState.site) return false;
-    if (!filterState.trucks.has('ALL') && !filterState.trucks.has(t.truckNo)) return false;
+    if (!filterState.parties.has('ALL') && !filterState.parties.has(t.party)) return false;
     return true;
-  });
-
-  filtered.sort((a, b) => {
-    const p = (a.party || '').localeCompare(b.party || '');
-    if (p !== 0) return p;
-    return (a.loadingTs || 0) - (b.loadingTs || 0);
   });
 
   if (!filtered.length){
     emptyState.querySelector('h3').textContent = 'No trips match these filters';
-    emptyState.querySelector('p').textContent = 'Try widening the date range or clearing the site/truck filters.';
+    emptyState.querySelector('p').textContent = 'Try widening the date range or clearing the site/party filters.';
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
-    setTripCount(0, true);
     return;
   }
 
@@ -608,7 +559,6 @@ function applyFilters(){
   tableWrap.style.display = 'block';
   tableFooter.style.display = 'flex';
   renderTable(filtered);
-  setTripCount(filtered.length, true);
 
   const totalLoad = filtered.reduce((s,t) => s + (t.loadingQty || 0), 0);
   const totalUnload = filtered.reduce((s,t) => s + (t.unloadingQty || 0), 0);
@@ -616,47 +566,41 @@ function applyFilters(){
     `${totalLoad.toFixed(2)} MT loaded  ·  ${totalUnload.toFixed(2)} MT unloaded`;
 }
 
-function setTripCount(n, active){
-  const el = document.getElementById('tripCount');
-  const dot = document.getElementById('tripDot');
-  const readout = document.getElementById('tripReadout');
-  el.textContent = String(n);
-  dot.classList.toggle('off', !active || n === 0);
-  readout.classList.remove('pulse'); void readout.offsetWidth; readout.classList.add('pulse');
-}
-
+/**
+ * Groups the filtered trip rows by party and renders one summary row
+ * per party: trip count, loading sum + average, unloading sum + average.
+ * Average = sum / number of trips for that party (per the current filters).
+ */
 function renderTable(rows){
-  const groups = [];
-  let current = null;
+  const groupMap = new Map();
   rows.forEach(r => {
-    if (!current || current.party !== r.party){
-      current = { party: r.party, items: [] };
-      groups.push(current);
-    }
-    current.items.push(r);
+    const key = r.party || '(No party)';
+    if (!groupMap.has(key)) groupMap.set(key, { party: key, trips: 0, loadSum: 0, unloadSum: 0 });
+    const g = groupMap.get(key);
+    g.trips += 1;
+    g.loadSum += (r.loadingQty || 0);
+    g.unloadSum += (r.unloadingQty || 0);
   });
+
+  const groups = [...groupMap.values()].sort((a, b) => a.party.localeCompare(b.party));
 
   const body = document.getElementById('tableBody');
   body.innerHTML = '';
   groups.forEach(g => {
     const hue = hashHue(g.party);
-    g.items.forEach((row, idx) => {
-      const tr = document.createElement('tr');
-      let cells = '';
-      if (idx === 0){
-        cells += `<td class="party-cell" rowspan="${g.items.length}" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(g.party || '—')}</td>`;
-      }
-      cells += qtyCell(row.loadingQty, 'loading-col');
-      cells += qtyCell(row.unloadingQty, 'unloading-col');
-      tr.innerHTML = cells;
-      body.appendChild(tr);
-    });
+    const avgLoad = g.trips ? g.loadSum / g.trips : 0;
+    const avgUnload = g.trips ? g.unloadSum / g.trips : 0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(g.party)}</td>
+      <td class="qty">${g.trips}</td>
+      <td class="qty loading-col">${g.loadSum.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty loading-col">${avgLoad.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty unloading-col">${g.unloadSum.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty unloading-col">${avgUnload.toFixed(2)}<span class="unit">MT</span></td>
+    `;
+    body.appendChild(tr);
   });
-}
-
-function qtyCell(val, cls){
-  if (val === null || val === undefined) return `<td class="qty ${cls} blank">—</td>`;
-  return `<td class="qty ${cls}">${Number(val).toFixed(2)}<span class="unit">MT</span></td>`;
 }
 
 function hashHue(str){
@@ -698,8 +642,6 @@ fileInput.addEventListener('change', async () => {
       mimeType: file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       data: base64
     });
-    // sent without an explicit Content-Type header (defaults to text/plain)
-    // so the browser treats this as a "simple request" and skips CORS preflight
     const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: payload });
     const result = await res.json();
     if (result.success){
