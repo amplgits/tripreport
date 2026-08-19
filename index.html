@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trip Report</title>
+<link rel="icon" type="image/png" href="https://wingzinfotech.in/img/ampl.jpg">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.css">
+
+<style>
+/* ============================================================
+   TOKENS
+   ============================================================ */
+:root{
+  --bg:#F1F4F3; --surface:#FFFFFF; --surface-alt:#E7ECEB; --surface-hover:#DEE5E3;
+  --ink:#101820; --ink-soft:#54626B; --ink-faint:#8B979E;
+  --line:#D9DFDD; --line-strong:#C3CBC8;
+  --loading:#0E9C8F; --loading-ink:#066358; --loading-soft:rgba(14,156,143,.12);
+  --unloading:#E8830F; --unloading-ink:#9A5407; --unloading-soft:rgba(232,131,15,.13);
+  --danger:#D64545;
+  --shadow:0 1px 2px rgba(16,24,32,.04), 0 8px 24px -12px rgba(16,24,32,.14);
+  --shadow-lg:0 20px 48px -16px rgba(16,24,32,.28);
+  --radius:14px; --radius-sm:9px;
+  --font-display:'Space Grotesk',sans-serif;
+  --font-body:'Inter',system-ui,sans-serif;
+  --font-mono:'Inter',system-ui,sans-serif; /* numeric values use the sans body face, not monospace */
+  --grad-hero:linear-gradient(120deg,#0E9C8F 0%,#0E7C9E 48%,#E8830F 100%);
+}
+[data-theme="dark"]{
+  --bg:#0A1013; --surface:#111A1F; --surface-alt:#17222A; --surface-hover:#1E2B33;
+  --ink:#EAF2F1; --ink-soft:#98A9AC; --ink-faint:#5F7176;
+  --line:#233238; --line-strong:#2E4048;
+  --loading:#28D6C4; --loading-ink:#8AF0E4; --loading-soft:rgba(40,214,196,.14);
+  --unloading:#FFA83D; --unloading-ink:#FFC98A; --unloading-soft:rgba(255,168,61,.15);
+  --danger:#F17070;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+  --shadow-lg:0 24px 56px -18px rgba(0,0,0,.65);
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--bg); color:var(--ink); font-family:var(--font-body);
+  min-height:100vh; -webkit-font-smoothing:antialiased;
+  transition:background .35s ease,color .35s ease;
+}
+::selection{background:var(--loading-soft);}
+button, input, select{font-family:inherit;}
+.app{max-width:1180px;margin:0 auto;padding:0 20px 64px;}
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+.topbar{
+  position:sticky; top:0; z-index:40; background:var(--bg);
+  padding:20px 0 16px; display:flex; align-items:center; gap:16px;
+  border-bottom:1px solid var(--line); margin-bottom:22px;
+}
+.topbar::after{
+  content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px;
+  background:var(--grad-hero); opacity:.9;
+}
+.brand{display:flex;align-items:center;gap:12px;min-width:0;}
+.brand img{width:38px;height:38px;border-radius:9px;object-fit:cover;background:var(--surface-alt);flex:none;}
+.brand-text h1{
+  font-family:var(--font-display); font-size:19px; font-weight:700; margin:0;
+  letter-spacing:.2px; white-space:nowrap;
+}
+.brand-text span{font-size:11.5px; color:var(--ink-faint); letter-spacing:.6px; text-transform:uppercase;}
+
+.spacer{flex:1;}
+
+.trip-readout{
+  display:flex; align-items:center; gap:10px; background:#0D1519; border:1px solid #1F2C31;
+  padding:8px 16px; border-radius:11px; box-shadow:inset 0 0 0 1px rgba(255,255,255,.02), var(--shadow);
+  position:relative; overflow:hidden;
+}
+.trip-readout::before{
+  content:''; position:absolute; inset:0; background:var(--grad-hero); opacity:.10;
+}
+.trip-readout .dot{width:7px;height:7px;border-radius:50%;background:var(--loading);box-shadow:0 0 8px var(--loading);flex:none;}
+.trip-readout .dot.off{background:var(--ink-faint);box-shadow:none;}
+.trip-readout .num{font-family:var(--font-mono);font-weight:700;font-size:20px;color:#EAF7F5;letter-spacing:.5px;line-height:1;}
+.trip-readout .lbl{font-size:9.5px;color:#8FA3A8;letter-spacing:1.2px;text-transform:uppercase;line-height:1;}
+.trip-readout.pulse .num{animation:pulseNum .5s ease;}
+@keyframes pulseNum{0%{transform:scale(1);}35%{transform:scale(1.18);color:#8AF0E4;}100%{transform:scale(1);}}
+
+.theme-toggle{
+  width:40px;height:40px;border-radius:11px;border:1px solid var(--line-strong);
+  background:var(--surface); cursor:pointer; display:flex;align-items:center;justify-content:center;
+  color:var(--ink-soft); transition:background .2s,transform .15s,color .2s; flex:none;
+}
+.theme-toggle:hover{background:var(--surface-hover); color:var(--ink);}
+.theme-toggle:active{transform:scale(.92);}
+.theme-toggle svg{width:18px;height:18px;}
+
+/* ============================================================
+   FILTER PANEL
+   ============================================================ */
+.filters{
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+  padding:20px 22px; box-shadow:var(--shadow); margin-bottom:22px;
+}
+.filter-row{display:flex; flex-wrap:wrap; gap:18px; align-items:flex-end;}
+.filter-row + .filter-row{margin-top:16px; padding-top:16px; border-top:1px dashed var(--line);}
+.field{display:flex; flex-direction:column; gap:6px; min-width:150px;}
+.field label{
+  font-size:10.5px; font-weight:600; letter-spacing:1px; text-transform:uppercase;
+  color:var(--ink-faint);
+}
+.field input[type="text"], .field select{
+  font-family:var(--font-mono); font-size:14px; padding:9px 12px; border-radius:var(--radius-sm);
+  border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  outline:none; transition:border-color .15s, box-shadow .15s; cursor:pointer;
+  min-width:150px;
+}
+.field input[type="text"]:focus, .field select:focus{
+  border-color:var(--loading); box-shadow:0 0 0 3px var(--loading-soft);
+}
+.field select{appearance:none; background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6'><path d='M0 0L5 6L10 0' fill='none' stroke='%2354626B' stroke-width='1.5'/></svg>"); background-repeat:no-repeat; background-position:right 12px center; padding-right:30px; cursor:pointer;}
+
+/* mode chips */
+.mode-group{display:flex; gap:10px;}
+.chip{
+  display:flex; align-items:center; gap:8px; padding:9px 15px; border-radius:999px;
+  border:1.5px solid var(--line-strong); background:var(--surface); cursor:pointer;
+  font-size:13.5px; font-weight:600; color:var(--ink-soft); transition:all .18s;
+  user-select:none;
+}
+.chip input{display:none;}
+.chip .swatch{width:9px;height:9px;border-radius:50%;background:currentColor;opacity:.5;transition:opacity .18s;}
+.chip.loading.active{border-color:var(--loading); color:var(--loading-ink); background:var(--loading-soft);}
+.chip.loading.active .swatch{opacity:1;}
+.chip.unloading.active{border-color:var(--unloading); color:var(--unloading-ink); background:var(--unloading-soft);}
+.chip.unloading.active .swatch{opacity:1;}
+.chip:hover{border-color:var(--ink-faint);}
+
+/* truck multiselect */
+.multiselect{position:relative;}
+.ms-trigger{
+  font-family:var(--font-mono); font-size:14px; padding:9px 30px 9px 12px; border-radius:var(--radius-sm);
+  border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); cursor:pointer;
+  min-width:180px; text-align:left; position:relative; transition:border-color .15s;
+}
+.ms-trigger:after{
+  content:''; position:absolute; right:12px; top:50%; width:8px;height:8px;
+  border-right:1.5px solid var(--ink-faint); border-bottom:1.5px solid var(--ink-faint);
+  transform:translateY(-65%) rotate(45deg);
+}
+.ms-trigger:hover{border-color:var(--ink-faint);}
+.ms-panel{
+  position:absolute; top:calc(100% + 8px); left:0; width:290px; max-height:340px;
+  background:var(--surface); border:1px solid var(--line-strong); border-radius:var(--radius-sm);
+  box-shadow:var(--shadow-lg); z-index:50; display:none; flex-direction:column; overflow:hidden;
+}
+.ms-panel.open{display:flex;}
+.ms-search{padding:10px; border-bottom:1px solid var(--line);}
+.ms-search input{
+  width:100%; padding:7px 10px; font-size:13px; border-radius:7px; border:1px solid var(--line-strong);
+  background:var(--surface-alt); color:var(--ink); outline:none; font-family:var(--font-body);
+}
+.ms-all{padding:10px 14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:9px; font-weight:600; font-size:13.5px; cursor:pointer;}
+.ms-list{overflow-y:auto; padding:6px 4px;}
+.ms-item{padding:8px 10px; display:flex; align-items:center; gap:9px; font-size:13.5px; border-radius:7px; cursor:pointer; opacity:1; transition:opacity .15s;}
+.ms-item:hover{background:var(--surface-alt);}
+.ms-item.disabled{opacity:.4; pointer-events:none;}
+.ms-item input, .ms-all input{accent-color:var(--loading); width:15px;height:15px; cursor:pointer;}
+.ms-empty{padding:16px; text-align:center; color:var(--ink-faint); font-size:13px;}
+
+/* buttons */
+.btn{
+  font-family:var(--font-body); font-weight:600; font-size:13.5px; padding:10px 18px;
+  border-radius:var(--radius-sm); border:1px solid var(--line-strong); background:var(--surface);
+  color:var(--ink-soft); cursor:pointer; transition:all .18s; display:inline-flex; align-items:center; gap:7px;
+}
+.btn:hover{background:var(--surface-hover); color:var(--ink);}
+.btn:active{transform:scale(.97);}
+.btn-primary{
+  background:var(--grad-hero); border:none; color:#fff; box-shadow:var(--shadow);
+}
+.btn-primary:hover{filter:brightness(1.06); color:#fff;}
+.btn svg{width:15px;height:15px;}
+
+/* ============================================================
+   RESULTS
+   ============================================================ */
+.results{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); overflow:hidden;}
+
+.empty-state{padding:70px 24px; text-align:center; color:var(--ink-faint);}
+.empty-state svg{width:52px;height:52px; margin-bottom:16px; opacity:.55;}
+.empty-state h3{font-family:var(--font-display); font-size:16px; color:var(--ink-soft); margin:0 0 6px;}
+.empty-state p{font-size:13.5px; margin:0; max-width:340px; margin-inline:auto; line-height:1.5;}
+
+.table-wrap{
+  overflow-x:auto; overflow-y:auto; max-height:64vh;
+  /* an explicit, bounded scroll container so thead's position:sticky has
+     something real to stick within — without this, the header scrolls
+     away with the rest of the page instead of staying put. */
+}
+table{border-collapse:collapse; font-size:14px; table-layout:fixed;}
+thead th{
+  text-align:left; padding:13px 20px; font-size:10.5px; font-weight:700; letter-spacing:1px;
+  text-transform:uppercase; color:var(--ink-faint); background:var(--surface-alt);
+  border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5;
+  white-space:normal; word-break:break-word; line-height:1.4;
+}
+thead th.num{text-align:right;}
+tbody td{padding:12px 20px; border-bottom:1px solid var(--line); vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+tbody tr:hover td{background:var(--surface-alt);}
+.party-cell{
+  font-weight:600; font-size:13.5px; border-left:3px solid transparent; position:relative;
+  white-space:normal; overflow-wrap:break-word; word-break:break-word; line-height:1.4;
+}
+.qty{font-family:var(--font-mono); font-weight:600; text-align:right; white-space:nowrap;}
+.qty.loading-col{color:var(--loading-ink);}
+.qty.unloading-col{color:var(--unloading-ink);}
+.qty .unit{font-size:10.5px; color:var(--ink-faint); font-weight:500; margin-left:3px;}
+.qty.blank{color:var(--ink-faint); font-weight:400;}
+.truck-tag{font-family:var(--font-mono); font-size:11.5px; color:var(--ink-faint); display:block; margin-top:2px;}
+
+.table-footer{
+  padding:12px 20px; font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line);
+  display:flex; justify-content:space-between; background:var(--surface-alt);
+}
+
+/* ============================================================
+   UPLOAD TOAST
+   ============================================================ */
+.toast{
+  position:fixed; bottom:24px; right:24px; background:var(--surface); border:1px solid var(--line-strong);
+  border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:14px 18px; display:flex;
+  align-items:center; gap:12px; min-width:260px; z-index:100; transform:translateY(20px); opacity:0;
+  transition:transform .3s ease, opacity .3s ease; pointer-events:none;
+}
+.toast.show{transform:translateY(0); opacity:1; pointer-events:auto;}
+.toast .spin{width:17px;height:17px;border:2.5px solid var(--line-strong); border-top-color:var(--loading); border-radius:50%; animation:spin .7s linear infinite; flex:none;}
+.toast.success .spin{border-top-color:var(--loading); animation:none; border:none; width:17px;height:17px;}
+.toast.error .spin{border:none;}
+.toast p{margin:0; font-size:13px; color:var(--ink); line-height:1.4;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* flatpickr reskin */
+.flatpickr-calendar{background:var(--surface)!important; border:1px solid var(--line-strong)!important; box-shadow:var(--shadow-lg)!important; border-radius:var(--radius-sm)!important; font-family:var(--font-body)!important;}
+.flatpickr-months, .flatpickr-weekdays{background:var(--surface-alt)!important;}
+.flatpickr-current-month, .flatpickr-weekday{color:var(--ink)!important;}
+.flatpickr-day{color:var(--ink)!important;}
+.flatpickr-day.flatpickr-disabled{color:var(--ink-faint)!important;}
+.flatpickr-day:hover{background:var(--surface-hover)!important;}
+.flatpickr-day.selected{background:var(--loading)!important; border-color:var(--loading)!important; color:#fff!important;}
+.flatpickr-day.today{border-color:var(--unloading)!important;}
+.numInputWrapper span, .flatpickr-prev-month svg, .flatpickr-next-month svg{fill:var(--ink-soft)!important;}
+
+@media (max-width:720px){
+  .app{padding:0 14px 48px;}
+  .topbar{flex-wrap:wrap; padding-top:16px;}
+  .brand-text span{display:none;}
+  .filter-row{gap:12px;}
+  .field, .ms-trigger, .field select, .field input{min-width:130px;}
+  thead th, tbody td{padding:10px 12px;}
+  .table-wrap{max-height:65vh;}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="https://wingzinfotech.in/img/ampl.jpg" alt="" onerror="this.style.display='none'">
+      <div class="brand-text">
+        <h1>Trip Report</h1>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="trip-readout" id="tripReadout">
+      <span class="dot off" id="tripDot"></span>
+      <div>
+        <div class="num" id="tripCount">0</div>
+        <div class="lbl">Trips shown</div>
+      </div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+      <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+    </button>
+  </header>
+
+  <section class="filters">
+    <div class="filter-row">
+      <div class="field">
+        <label for="dateFrom">From</label>
+        <input type="text" id="dateFrom" placeholder="DD/MM/YYYY" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="dateTo">To</label>
+        <input type="text" id="dateTo" placeholder="DD/MM/YYYY" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Mode</label>
+        <div class="mode-group">
+          <label class="chip loading" id="chipLoading">
+            <input type="checkbox" id="cbLoading"><span class="swatch" style="color:var(--loading)"></span>Loading
+          </label>
+          <label class="chip unloading" id="chipUnloading">
+            <input type="checkbox" id="cbUnloading"><span class="swatch" style="color:var(--unloading)"></span>Unloading
+          </label>
+        </div>
+      </div>
+      <div class="field">
+        <label for="siteSelect">Site</label>
+        <select id="siteSelect"><option value="ALL">All sites</option></select>
+      </div>
+      <div class="field">
+        <label>Truck no.</label>
+        <div class="multiselect" id="truckMultiselect">
+          <button type="button" class="ms-trigger" id="truckTrigger">All trucks</button>
+          <div class="ms-panel" id="truckPanel">
+            <div class="ms-search"><input type="text" id="truckSearch" placeholder="Search truck no…"></div>
+            <label class="ms-all"><input type="checkbox" id="truckAllCb" checked> All trucks</label>
+            <div class="ms-list" id="truckList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-row">
+      <button class="btn" id="clearBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
+        Clear filters
+      </button>
+      <button class="btn" id="refreshBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4v5h5M20 20v-5h-5M4.5 9a8 8 0 0114.5-3M19.5 15a8 8 0 01-14.5 3"/></svg>
+        Refresh
+      </button>
+      <div class="spacer"></div>
+      <button class="btn btn-primary" id="uploadBtn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M6 10l6-6 6 6M4 20h16"/></svg>
+        Upload Excel
+      </button>
+    </div>
+  </section>
+
+  <section class="results">
+    <div class="empty-state" id="emptyState">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3h8l4 4v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>
+      <h3>No trips on screen yet</h3>
+      <p>Pick a From and To date, then choose Loading or Unloading, to bring up the register.</p>
+    </div>
+    <div class="table-wrap" id="tableWrap" style="display:none;">
+      <table>
+        <colgroup>
+          <col style="width:150px">
+          <col style="width:150px">
+          <col style="width:150px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Party name</th>
+            <th class="num">Loading qty</th>
+            <th class="num">Unloading qty</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="table-footer" id="tableFooter" style="display:none;">
+      <span id="footerSummary"></span>
+      <span id="lastUpdated"></span>
+    </div>
+  </section>
+
+</div>
+
+<input type="file" id="fileInput" accept=".xlsx" hidden>
+<div class="toast" id="toast"><div class="spin"></div><p id="toastMsg"></p></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/flatpickr/4.6.13/flatpickr.min.js"></script>
+<script>
+/* =================================================================
+   CONFIG — fill these in before deploying
+   ================================================================= */
+const FIREBASE_URL = 'https://projecttrip-b7b47-default-rtdb.asia-southeast1.firebasedatabase.app';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ2LHsQIIoa5H-anPJW3sTL6yW6S_e1sv1dRIJApMfY5aJigEqAGSEoPYr9R6wIV74/exec'; // ends in /exec
+
+/* =================================================================
+   STATE
+   ================================================================= */
+let allTrips = [];
+let uniqueSites = [];
+let uniqueTrucks = [];
+const filterState = { from: null, to: null, mode: null, site: 'ALL', trucks: new Set(['ALL']) };
+
+/* =================================================================
+   THEME
+   ================================================================= */
+const root = document.documentElement;
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const ICON_SUN = '<path d="M12 3v2M12 19v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M3 12h2M19 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/><circle cx="12" cy="12" r="4.5"/>';
+const ICON_MOON = '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>';
+function applyTheme(t){
+  root.setAttribute('data-theme', t);
+  themeIcon.innerHTML = t === 'dark' ? ICON_SUN : ICON_MOON;
+  localStorage.setItem('lsc_theme', t);
+}
+applyTheme(localStorage.getItem('lsc_theme') || 'light');
+themeToggle.addEventListener('click', () => {
+  applyTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+/* =================================================================
+   DATE PICKERS
+   ================================================================= */
+const fpFrom = flatpickr('#dateFrom', {
+  dateFormat: 'd/m/Y', allowInput: true,
+  onChange: (d) => { filterState.from = d[0] || null; if (fpTo.config) fpTo.set('minDate', d[0] || null); applyFilters(); }
+});
+const fpTo = flatpickr('#dateTo', {
+  dateFormat: 'd/m/Y', allowInput: true,
+  onChange: (d) => { filterState.to = d[0] || null; applyFilters(); }
+});
+
+/* =================================================================
+   MODE CHIPS (mutually exclusive, either can be toggled off)
+   ================================================================= */
+const cbLoading = document.getElementById('cbLoading');
+const cbUnloading = document.getElementById('cbUnloading');
+const chipLoading = document.getElementById('chipLoading');
+const chipUnloading = document.getElementById('chipUnloading');
+
+function setMode(mode){
+  filterState.mode = mode;
+  cbLoading.checked = mode === 'loading';
+  cbUnloading.checked = mode === 'unloading';
+  chipLoading.classList.toggle('active', mode === 'loading');
+  chipUnloading.classList.toggle('active', mode === 'unloading');
+  applyFilters();
+}
+chipLoading.addEventListener('click', (e) => { e.preventDefault(); setMode(filterState.mode === 'loading' ? null : 'loading'); });
+chipUnloading.addEventListener('click', (e) => { e.preventDefault(); setMode(filterState.mode === 'unloading' ? null : 'unloading'); });
+
+/* =================================================================
+   SITE FILTER
+   ================================================================= */
+const siteSelect = document.getElementById('siteSelect');
+siteSelect.addEventListener('change', () => { filterState.site = siteSelect.value; applyFilters(); });
+
+/* =================================================================
+   TRUCK MULTISELECT
+   ================================================================= */
+const truckTrigger = document.getElementById('truckTrigger');
+const truckPanel = document.getElementById('truckPanel');
+const truckList = document.getElementById('truckList');
+const truckAllCb = document.getElementById('truckAllCb');
+const truckSearch = document.getElementById('truckSearch');
+
+truckTrigger.addEventListener('click', () => truckPanel.classList.toggle('open'));
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('truckMultiselect').contains(e.target)) truckPanel.classList.remove('open');
+});
+
+function renderTruckList(filterText){
+  const q = (filterText || '').trim().toUpperCase();
+  truckList.innerHTML = '';
+  const isAll = filterState.trucks.has('ALL');
+  const matches = uniqueTrucks.filter(t => t.toUpperCase().includes(q));
+  if (!matches.length){
+    truckList.innerHTML = '<div class="ms-empty">No trucks match</div>';
+    return;
+  }
+  matches.forEach(truck => {
+    const row = document.createElement('label');
+    row.className = 'ms-item' + (isAll ? ' disabled' : '');
+    const checked = !isAll && filterState.trucks.has(truck);
+    row.innerHTML = `<input type="checkbox" data-truck="${truck}" ${checked ? 'checked' : ''}> ${truck}`;
+    truckList.appendChild(row);
+  });
+  truckList.querySelectorAll('input[data-truck]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const t = cb.getAttribute('data-truck');
+      if (cb.checked) filterState.trucks.add(t); else filterState.trucks.delete(t);
+      filterState.trucks.delete('ALL');
+      updateTruckTriggerLabel();
+      applyFilters();
+    });
+  });
+}
+truckAllCb.addEventListener('change', () => {
+  if (truckAllCb.checked){
+    filterState.trucks = new Set(['ALL']);
+  } else {
+    filterState.trucks = new Set();
+  }
+  renderTruckList(truckSearch.value);
+  updateTruckTriggerLabel();
+  applyFilters();
+});
+truckSearch.addEventListener('input', () => renderTruckList(truckSearch.value));
+
+function updateTruckTriggerLabel(){
+  if (filterState.trucks.has('ALL')) truckTrigger.textContent = 'All trucks';
+  else if (filterState.trucks.size === 0) truckTrigger.textContent = 'No trucks selected';
+  else if (filterState.trucks.size === 1) truckTrigger.textContent = [...filterState.trucks][0];
+  else truckTrigger.textContent = filterState.trucks.size + ' trucks selected';
+}
+
+/* =================================================================
+   CLEAR / REFRESH
+   ================================================================= */
+document.getElementById('clearBtn').addEventListener('click', () => {
+  fpFrom.clear(); fpTo.clear();
+  filterState.from = null; filterState.to = null;
+  setMode(null);
+  siteSelect.value = 'ALL'; filterState.site = 'ALL';
+  truckAllCb.checked = true; filterState.trucks = new Set(['ALL']);
+  renderTruckList(''); updateTruckTriggerLabel();
+  applyFilters();
+});
+document.getElementById('refreshBtn').addEventListener('click', loadData);
+
+/* =================================================================
+   DATA LOADING
+   ================================================================= */
+async function loadData(){
+  try{
+    const res = await fetch(FIREBASE_URL + '/trips.json');
+    const json = await res.json();
+    allTrips = json ? Object.keys(json).map(k => Object.assign({ id: k }, json[k])) : [];
+    computeFilterOptions();
+    document.getElementById('lastUpdated').textContent = 'Updated ' + new Date().toLocaleTimeString('en-IN');
+    applyFilters();
+  } catch(err){
+    console.error('Failed to load Firebase data', err);
+  }
+}
+
+function computeFilterOptions(){
+  const sites = new Set(); const trucks = new Set();
+  allTrips.forEach(t => { if (t.source) sites.add(t.source); if (t.truckNo) trucks.add(t.truckNo); });
+  uniqueSites = [...sites].sort();
+  uniqueTrucks = [...trucks].sort();
+
+  const prevSite = siteSelect.value || 'ALL';
+  siteSelect.innerHTML = '<option value="ALL">All sites</option>' +
+    uniqueSites.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+  siteSelect.value = uniqueSites.includes(prevSite) ? prevSite : 'ALL';
+  filterState.site = siteSelect.value;
+
+  renderTruckList(truckSearch.value);
+  updateTruckTriggerLabel();
+}
+
+/* =================================================================
+   FILTER + RENDER
+   ================================================================= */
+function keyToDate(key){ const [d,m,y] = key.split('/').map(Number); return new Date(y, m-1, d); }
+
+function applyFilters(){
+  const emptyState = document.getElementById('emptyState');
+  const tableWrap = document.getElementById('tableWrap');
+  const tableFooter = document.getElementById('tableFooter');
+  const tripReadout = document.getElementById('tripReadout');
+  const tripDot = document.getElementById('tripDot');
+
+  const gateOpen = filterState.from && filterState.to && filterState.mode;
+  if (!gateOpen){
+    emptyState.style.display = 'block';
+    tableWrap.style.display = 'none';
+    tableFooter.style.display = 'none';
+    setTripCount(0, false);
+    return;
+  }
+
+  const fromMs = new Date(filterState.from.getFullYear(), filterState.from.getMonth(), filterState.from.getDate()).getTime();
+  const toMs = new Date(filterState.to.getFullYear(), filterState.to.getMonth(), filterState.to.getDate()).getTime();
+  const dateField = filterState.mode === 'loading' ? 'loadingKey' : 'unloadingKey';
+
+  const filtered = allTrips.filter(t => {
+    const key = t[dateField];
+    if (!key) return false;
+    const ms = keyToDate(key).getTime();
+    if (ms < fromMs || ms > toMs) return false;
+    if (filterState.site !== 'ALL' && t.source !== filterState.site) return false;
+    if (!filterState.trucks.has('ALL') && !filterState.trucks.has(t.truckNo)) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    const p = (a.party || '').localeCompare(b.party || '');
+    if (p !== 0) return p;
+    return (a.loadingTs || 0) - (b.loadingTs || 0);
+  });
+
+  if (!filtered.length){
+    emptyState.querySelector('h3').textContent = 'No trips match these filters';
+    emptyState.querySelector('p').textContent = 'Try widening the date range or clearing the site/truck filters.';
+    emptyState.style.display = 'block';
+    tableWrap.style.display = 'none';
+    tableFooter.style.display = 'none';
+    setTripCount(0, true);
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  tableWrap.style.display = 'block';
+  tableFooter.style.display = 'flex';
+  renderTable(filtered);
+  setTripCount(filtered.length, true);
+
+  const totalLoad = filtered.reduce((s,t) => s + (t.loadingQty || 0), 0);
+  const totalUnload = filtered.reduce((s,t) => s + (t.unloadingQty || 0), 0);
+  document.getElementById('footerSummary').textContent =
+    `${totalLoad.toFixed(2)} MT loaded  ·  ${totalUnload.toFixed(2)} MT unloaded`;
+}
+
+function setTripCount(n, active){
+  const el = document.getElementById('tripCount');
+  const dot = document.getElementById('tripDot');
+  const readout = document.getElementById('tripReadout');
+  el.textContent = String(n);
+  dot.classList.toggle('off', !active || n === 0);
+  readout.classList.remove('pulse'); void readout.offsetWidth; readout.classList.add('pulse');
+}
+
+function renderTable(rows){
+  const groups = [];
+  let current = null;
+  rows.forEach(r => {
+    if (!current || current.party !== r.party){
+      current = { party: r.party, items: [] };
+      groups.push(current);
+    }
+    current.items.push(r);
+  });
+
+  const body = document.getElementById('tableBody');
+  body.innerHTML = '';
+  groups.forEach(g => {
+    const hue = hashHue(g.party);
+    g.items.forEach((row, idx) => {
+      const tr = document.createElement('tr');
+      let cells = '';
+      if (idx === 0){
+        cells += `<td class="party-cell" rowspan="${g.items.length}" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(g.party || '—')}</td>`;
+      }
+      cells += qtyCell(row.loadingQty, 'loading-col');
+      cells += qtyCell(row.unloadingQty, 'unloading-col');
+      tr.innerHTML = cells;
+      body.appendChild(tr);
+    });
+  });
+}
+
+function qtyCell(val, cls){
+  if (val === null || val === undefined) return `<td class="qty ${cls} blank">—</td>`;
+  return `<td class="qty ${cls}">${Number(val).toFixed(2)}<span class="unit">MT</span></td>`;
+}
+
+function hashHue(str){
+  let h = 0;
+  for (let i = 0; i < (str || '').length; i++) h = (h * 31 + str.charCodeAt(i)) % 360;
+  return h;
+}
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* =================================================================
+   UPLOAD
+   ================================================================= */
+const fileInput = document.getElementById('fileInput');
+const uploadBtn = document.getElementById('uploadBtn');
+const toast = document.getElementById('toast');
+const toastMsg = document.getElementById('toastMsg');
+
+uploadBtn.addEventListener('click', () => {
+  if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_') === 0){
+    showToast('Apps Script URL is not configured yet — see SETUP_GUIDE.md.', 'error');
+    return;
+  }
+  fileInput.click();
+});
+
+fileInput.addEventListener('change', async () => {
+  const file = fileInput.files[0];
+  fileInput.value = '';
+  if (!file) return;
+
+  showToast('Uploading ' + file.name + '…', 'loading');
+  try{
+    const base64 = await fileToBase64(file);
+    const payload = JSON.stringify({
+      action: 'upload',
+      fileName: file.name,
+      mimeType: file.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      data: base64
+    });
+    // sent without an explicit Content-Type header (defaults to text/plain)
+    // so the browser treats this as a "simple request" and skips CORS preflight
+    const res = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: payload });
+    const result = await res.json();
+    if (result.success){
+      showToast('Slip uploaded. Refreshing dashboard…', 'success');
+      setTimeout(loadData, 1500);
+    } else {
+      showToast('Upload failed: ' + (result.error || 'unknown error'), 'error');
+    }
+  } catch(err){
+    console.error(err);
+    showToast('Upload failed — check your connection and try again.', 'error');
+  }
+});
+
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+let toastTimer = null;
+function showToast(msg, kind){
+  clearTimeout(toastTimer);
+  toastMsg.textContent = msg;
+  toast.className = 'toast show' + (kind === 'success' ? ' success' : kind === 'error' ? ' error' : '');
+  if (kind !== 'loading'){
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 4200);
+  }
+}
+
+/* =================================================================
+   INIT
+   ================================================================= */
+loadData();
+</script>
+</body>
+</html>
