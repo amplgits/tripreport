@@ -196,7 +196,7 @@ button, input, select{font-family:inherit;}
 .empty-state{padding:70px 24px; text-align:center; color:var(--ink-faint);}
 .empty-state svg{width:52px;height:52px; margin-bottom:16px; opacity:.55;}
 .empty-state h3{font-family:var(--font-display); font-size:16px; color:var(--ink-soft); margin:0 0 6px;}
-.empty-state p{font-size:13.5px; margin:0; max-width:340px; margin-inline:auto; line-height:1.5;}
+.empty-state p{font-size:13.5px; margin:0; max-width:360px; margin-inline:auto; line-height:1.5;}
 
 .table-wrap{
   overflow-x:auto; overflow-y:auto; max-height:64vh;
@@ -221,6 +221,14 @@ tbody tr:hover td{background:var(--surface-alt);}
 .qty.unloading-col{color:var(--unloading-ink);}
 .qty .unit{font-size:10.5px; color:var(--ink-faint); font-weight:500; margin-left:3px;}
 .qty.blank{color:var(--ink-faint); font-weight:400;}
+
+tfoot td{
+  padding:13px 20px; font-weight:700; background:var(--surface-alt);
+  border-top:2px solid var(--line-strong);
+}
+tfoot .total-label{
+  font-family:var(--font-display); letter-spacing:.5px; font-size:13px;
+}
 
 .table-footer{
   padding:12px 20px; font-size:12px; color:var(--ink-faint); border-top:1px solid var(--line);
@@ -256,7 +264,7 @@ tbody tr:hover td{background:var(--surface-alt);}
   .brand-text span{display:none;}
   .filter-row{gap:12px;}
   .field, .ms-trigger, .field select, .field input{min-width:130px;}
-  thead th, tbody td{padding:10px 12px;}
+  thead th, tbody td, tfoot td{padding:10px 12px;}
   .table-wrap{max-height:65vh;}
 }
 </style>
@@ -319,6 +327,8 @@ tbody tr:hover td{background:var(--surface-alt);}
             </div>
           </div>
         </div>
+      </div>
+      <div class="filter-row">
         <div class="site-cards" id="siteCards"></div>
       </div>
       <div class="filter-row">
@@ -347,7 +357,7 @@ tbody tr:hover td{background:var(--surface-alt);}
     <div class="empty-state" id="emptyState">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3h8l4 4v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>
       <h3>No trips on screen yet</h3>
-      <p>Pick a From and To date, then choose Loading or Unloading, to bring up the register.</p>
+      <p>Pick a From and To date, choose Loading or Unloading, and select a specific Site to bring up the register.</p>
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none;">
       <table id="reportTable">
@@ -370,6 +380,7 @@ tbody tr:hover td{background:var(--surface-alt);}
           </tr>
         </thead>
         <tbody id="tableBody"></tbody>
+        <tfoot id="tableFoot"></tfoot>
       </table>
     </div>
     <div class="table-footer" id="tableFooter" style="display:none;">
@@ -624,14 +635,15 @@ function computeFilterOptions(){
    SITE SUMMARY CARDS
    ================================================================= */
 /**
- * One card per unique site, showing Trip Count and Quantity. These cards
- * are independent of the Site/Party filters (they always cover every
- * party at that site) so they read as a stable overview:
- *   - When a full date range + mode is selected, they show trips and the
- *     mode-relevant quantity for that window (matching the main table).
- *   - When the date range or mode isn't set yet, they fall back to an
- *     all-time total (loading + unloading combined) so the cards are
- *     never empty.
+ * One card per unique site, showing Trip Count and Quantity — always
+ * covering every party at that site, independent of the Site/Party
+ * filters, so they read as a stable per-site overview.
+ *
+ * Cards require BOTH a full date range (From + To) AND a Mode to be
+ * selected — same gate as the main table. Until then, no cards render
+ * at all. Once open, the labels themselves are mode-prefixed
+ * ("Loading Trips" / "Loading Total qty" or "Unloading Trips" /
+ * "Unloading Total qty") rather than a generic "Trips"/"Qty".
  */
 function renderSiteCards(){
   const container = document.getElementById('siteCards');
@@ -640,34 +652,25 @@ function renderSiteCards(){
   if (!uniqueSites.length) return;
 
   const gateOpen = filterState.from && filterState.to && filterState.mode;
-  let fromMs, toMs, dateField, qtyField, qtyLabel;
+  if (!gateOpen) return; // no cards until date range + mode are both selected
 
-  if (gateOpen){
-    fromMs = new Date(filterState.from.getFullYear(), filterState.from.getMonth(), filterState.from.getDate()).getTime();
-    toMs = new Date(filterState.to.getFullYear(), filterState.to.getMonth(), filterState.to.getDate()).getTime();
-    dateField = filterState.mode === 'loading' ? 'loadingKey' : 'unloadingKey';
-    qtyField = filterState.mode === 'loading' ? 'loadingQty' : 'unloadingQty';
-    qtyLabel = filterState.mode === 'loading' ? 'Loading qty' : 'Unloading qty';
-  } else {
-    qtyLabel = 'Total qty';
-  }
+  const fromMs = new Date(filterState.from.getFullYear(), filterState.from.getMonth(), filterState.from.getDate()).getTime();
+  const toMs = new Date(filterState.to.getFullYear(), filterState.to.getMonth(), filterState.to.getDate()).getTime();
+  const dateField = filterState.mode === 'loading' ? 'loadingKey' : 'unloadingKey';
+  const qtyField = filterState.mode === 'loading' ? 'loadingQty' : 'unloadingQty';
+  const modeWord = filterState.mode === 'loading' ? 'Loading' : 'Unloading';
 
   uniqueSites.forEach(site => {
     let trips = 0, qty = 0;
 
     allTrips.forEach(t => {
       if (t.source !== site) return;
-      if (gateOpen){
-        const key = t[dateField];
-        if (!key) return;
-        const ms = keyToDate(key).getTime();
-        if (ms < fromMs || ms > toMs) return;
-        trips += 1;
-        qty += (t[qtyField] || 0);
-      } else {
-        trips += 1;
-        qty += (t.loadingQty || 0) + (t.unloadingQty || 0);
-      }
+      const key = t[dateField];
+      if (!key) return;
+      const ms = keyToDate(key).getTime();
+      if (ms < fromMs || ms > toMs) return;
+      trips += 1;
+      qty += (t[qtyField] || 0);
     });
 
     const hue = hashHue(site);
@@ -676,8 +679,8 @@ function renderSiteCards(){
     card.style.setProperty('--card-accent', `hsl(${hue},55%,45%)`);
     card.innerHTML = `
       <div class="site-card-title" title="${escapeHtml(site)}">${escapeHtml(abbreviateSite(site))}</div>
-      <div class="site-card-row"><span>Trips</span><span class="site-card-value">${trips}</span></div>
-      <div class="site-card-row"><span>${qtyLabel}</span><span class="site-card-value">${qty.toFixed(2)}<span class="unit"> MT</span></span></div>
+      <div class="site-card-row"><span>${modeWord} Trips</span><span class="site-card-value">${trips}</span></div>
+      <div class="site-card-row"><span>${modeWord} Total qty</span><span class="site-card-value">${qty.toFixed(2)}<span class="unit"> MT</span></span></div>
     `;
     container.appendChild(card);
   });
@@ -695,8 +698,12 @@ function applyFilters(){
   const tableWrap = document.getElementById('tableWrap');
   const tableFooter = document.getElementById('tableFooter');
 
-  const gateOpen = filterState.from && filterState.to && filterState.mode;
+  // The table now also requires a specific Site to be picked — "All
+  // sites" is no longer enough on its own to bring up the register.
+  const gateOpen = filterState.from && filterState.to && filterState.mode && filterState.site !== 'ALL';
   if (!gateOpen){
+    emptyState.querySelector('h3').textContent = 'No trips on screen yet';
+    emptyState.querySelector('p').textContent = 'Pick a From and To date, choose Loading or Unloading, and select a specific Site to bring up the register.';
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
@@ -712,14 +719,14 @@ function applyFilters(){
     if (!key) return false;
     const ms = keyToDate(key).getTime();
     if (ms < fromMs || ms > toMs) return false;
-    if (filterState.site !== 'ALL' && t.source !== filterState.site) return false;
+    if (t.source !== filterState.site) return false;
     if (!filterState.parties.has('ALL') && !filterState.parties.has(t.party)) return false;
     return true;
   });
 
   if (!filtered.length){
     emptyState.querySelector('h3').textContent = 'No trips match these filters';
-    emptyState.querySelector('p').textContent = 'Try widening the date range or clearing the site/party filters.';
+    emptyState.querySelector('p').textContent = 'Try widening the date range or clearing the party filter.';
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
@@ -740,7 +747,9 @@ function applyFilters(){
 /**
  * Groups the filtered trip rows by party and renders one summary row per
  * party: trip count, unique truck count, the mode-relevant quantity sum
- * + average, and average trips per truck per day.
+ * + average, and average trips per truck per day. A Total row is added
+ * to the table's <tfoot>, which also carries straight through into the
+ * PDF export since that reads directly from this same table.
  *
  * The Loading/Unloading quantity columns are mode-driven — since the date
  * filter itself already requires exactly one mode to be selected, the
@@ -755,6 +764,7 @@ function renderTable(rows){
   const qtyLabel = mode === 'loading' ? 'Loading qty' : 'Unloading qty';
   const avgQtyLabel = mode === 'loading' ? 'Avg loading' : 'Avg unloading';
   const qtyColorClass = mode === 'loading' ? 'loading-col' : 'unloading-col';
+  const qtyField = mode === 'loading' ? 'loadingQty' : 'unloadingQty';
 
   document.getElementById('tableHeadRow').innerHTML = `
     <th>Party name</th>
@@ -802,6 +812,27 @@ function renderTable(rows){
     `;
     body.appendChild(tr);
   });
+
+  // Total row: Total Trips, Total Trucks (distinct across ALL rows, not
+  // a sum of each party's unique-truck count), and Total Loading/
+  // Unloading qty. The two Avg columns aren't meaningfully summable, so
+  // they're left as a dash to keep the row's six cells aligned.
+  const totalTrips = rows.length;
+  const totalTruckSet = new Set();
+  rows.forEach(r => { if (r.truckNo) totalTruckSet.add(r.truckNo); });
+  const totalTrucks = totalTruckSet.size;
+  const totalQty = rows.reduce((s, r) => s + (r[qtyField] || 0), 0);
+
+  document.getElementById('tableFoot').innerHTML = `
+    <tr>
+      <td class="party-cell total-label">TOTAL</td>
+      <td class="qty">${totalTrips}</td>
+      <td class="qty">${totalTrucks}</td>
+      <td class="qty ${qtyColorClass}">${totalQty.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty blank">—</td>
+      <td class="qty blank">—</td>
+    </tr>
+  `;
 }
 
 function hashHue(str){
@@ -862,12 +893,28 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   doc.setFontSize(10);
   doc.text(`Mode: ${modeLabel}`, 40, 102);
 
+  // html mode picks up thead/tbody/tfoot from #reportTable automatically,
+  // so the Total row already in the DOM table appears in the PDF too.
+  // tableWidth:'wrap' stops the table at the sum of the column widths
+  // below instead of stretching to fill the page, so the right half of
+  // the page stays blank and white as requested.
   doc.autoTable({
     html: '#reportTable',
     startY: 116,
+    tableWidth: 'wrap',
+    showFoot: 'lastPage', // Total row only at the end of the last page, not repeated per page
     styles: { fontSize: 9, cellPadding: 6, textColor: [16, 24, 32] },
     headStyles: { fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold' },
-    alternateRowStyles: { fillColor: [247, 249, 248] }
+    alternateRowStyles: { fillColor: [247, 249, 248] },
+    footStyles: { fillColor: [222, 229, 227], textColor: [16, 24, 32], fontStyle: 'bold' },
+    columnStyles: {
+      0: { cellWidth: 180 }, // Party name — 50% of its previous ~220pt spread
+      1: { cellWidth: 40 },  // Trips
+      2: { cellWidth: 40 },  // Trucks
+      3: { cellWidth: 70 },  // Loading/Unloading qty
+      4: { cellWidth: 100 },  // Avg loading/unloading
+      5: { cellWidth: 100 }   // Avg trips/truck
+    }
   });
 
   const fileDate = new Date().toISOString().slice(0, 10);
