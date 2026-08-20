@@ -852,6 +852,31 @@ function formatDMY(d){
 /* =================================================================
    PDF EXPORT
    ================================================================= */
+/**
+ * Reads the on-screen table into head/body/foot arrays, skipping the
+ * given zero-based column indexes. Used instead of autoTable's `html`
+ * mode so specific columns (Avg loading/unloading, Avg trips/truck) can
+ * be left out of the PDF without touching what's shown on screen.
+ */
+function extractTableData(excludeCols){
+  const keep = (i) => !excludeCols.includes(i);
+
+  const headCells = [...document.getElementById('tableHeadRow').children];
+  const head = [headCells.filter((_, i) => keep(i)).map(th => th.textContent.trim())];
+
+  const bodyRows = [...document.getElementById('tableBody').rows];
+  const body = bodyRows.map(tr =>
+    [...tr.children].filter((_, i) => keep(i)).map(td => td.textContent.trim())
+  );
+
+  const footRow = document.getElementById('tableFoot').rows[0];
+  const foot = footRow
+    ? [[...footRow.children].filter((_, i) => keep(i)).map(td => td.textContent.trim())]
+    : [];
+
+  return { head, body, foot };
+}
+
 document.getElementById('pdfBtn').addEventListener('click', () => {
   const tableWrap = document.getElementById('tableWrap');
   if (tableWrap.style.display === 'none'){
@@ -893,13 +918,13 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   doc.setFontSize(10);
   doc.text(`Mode: ${modeLabel}`, 40, 102);
 
-  // html mode picks up thead/tbody/tfoot from #reportTable automatically,
-  // so the Total row already in the DOM table appears in the PDF too.
-  // tableWidth:'wrap' stops the table at the sum of the column widths
-  // below instead of stretching to fill the page, so the right half of
-  // the page stays blank and white as requested.
+  // Columns 4 (Avg loading/unloading) and 5 (Avg trips/truck) are left
+  // out of the PDF — the on-screen table is untouched, only the export
+  // is narrowed.
+  const { head, body, foot } = extractTableData([4, 5]);
+
   doc.autoTable({
-    html: '#reportTable',
+    head, body, foot,
     startY: 116,
     tableWidth: 'wrap',
     showFoot: 'lastPage', // Total row only at the end of the last page, not repeated per page
@@ -908,12 +933,10 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
     alternateRowStyles: { fillColor: [247, 249, 248] },
     footStyles: { fillColor: [222, 229, 227], textColor: [16, 24, 32], fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 180 }, // Party name — 50% of its previous ~220pt spread
+      0: { cellWidth: 180 }, // Party name
       1: { cellWidth: 40 },  // Trips
       2: { cellWidth: 40 },  // Trucks
-      3: { cellWidth: 70 },  // Loading/Unloading qty
-      4: { cellWidth: 100 },  // Avg loading/unloading
-      5: { cellWidth: 100 }   // Avg trips/truck
+      3: { cellWidth: 70 }   // Loading/Unloading qty
     }
   });
 
