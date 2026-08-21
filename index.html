@@ -118,7 +118,7 @@ button,.chip,.ms-trigger,.field select,.field input,.theme-toggle{
 }
 .field input[type="text"], .field select{
   font-family:var(--font-mono); font-size:14px; padding:9px 12px; border-radius:var(--radius-sm);
-  border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  border:1px solid var(--line-strong); background:ALICEBLUE; color:var(--ink);
   outline:none; transition:border-color .15s, box-shadow .15s; cursor:pointer;
   min-width:150px;
 }
@@ -145,7 +145,7 @@ button,.chip,.ms-trigger,.field select,.field input,.theme-toggle{
 .multiselect{position:relative;}
 .ms-trigger{
   font-family:var(--font-mono); font-size:14px; padding:9px 30px 9px 12px; border-radius:var(--radius-sm);
-  border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); cursor:pointer;
+  border:1px solid var(--line-strong); background:LIGHTSKYBLUE; color:var(--ink); cursor:pointer;
   min-width:180px; text-align:left; position:relative; transition:border-color .15s;
 }
 .ms-trigger:disabled, .ms-trigger.disabled{cursor:not-allowed; color:var(--ink-faint); background:var(--surface-alt);}
@@ -221,7 +221,7 @@ thead{position:sticky; top:0; z-index:5;}
 thead th{
   text-align:left; padding:11px 14px; font-size:10px; font-weight:700; letter-spacing:.8px;
   text-transform:uppercase; color:var(--ink-faint); background:var(--surface-alt);
-  border-bottom:1px solid var(--line); white-space:normal; word-break:break-word; line-height:1.35;
+  border:1px solid var(--line); white-space:normal; word-break:break-word; line-height:1.35;
   vertical-align:middle;
 }
 thead th.num{text-align:right;}
@@ -231,8 +231,7 @@ thead th.site-group-header{
   text-align:center;
 }
 .group-start{border-left:2px solid var(--line-strong) !important;}
-tbody td, tfoot td{padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap;}
-tbody tr:last-child td{border-bottom:none;}
+tbody td, tfoot td{padding:11px 14px; border:1px solid var(--line); vertical-align:middle; white-space:nowrap;}
 tbody tr:hover td{background:var(--surface-alt);}
 .party-cell{
   font-weight:600; font-size:13.5px; border-left:3px solid transparent; position:relative;
@@ -430,7 +429,7 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ2LHsQIIoa5H-
 
 // How many trips per truck per day counts as "on target" — used to
 // compute Target Trips = days in range × TARGET_TRIPS_PER_TRUCK_PER_DAY × trucks.
-const TARGET_TRIPS_PER_TRUCK_PER_DAY = 4;
+const TARGET_TRIPS_PER_TRUCK_PER_DAY = 5;
 
 // Known site name → short code shown on the summary cards and as each
 // site's column-group header in the table / PDF. Any site not listed
@@ -999,39 +998,34 @@ function renderTable(rows){
   lastReportModel = model;
   const { qtyLabel, qtyColorClass, sitesInScope } = model;
 
-  /* ---- HEADER: Party name | [Site group] repeated (1st site: 4 cols, rest: 2 cols) | Totals ×3 ---- */
+  /* ---- HEADER: Party name | [Site group] repeated (1st site: 4 cols, rest: 2 cols) | Totals ×3 ----
+     There is no spanning "Sites" cell any more — the site name sits directly
+     above only its Trips + Qty columns, and never above Fleet / Target trips. ---- */
   const thead = document.getElementById('tableHead');
   thead.innerHTML = '';
 
-  const sitesColspan = sitesInScope.length ? (4 + 2 * (sitesInScope.length - 1)) : 0;
-
   const headRow1 = document.createElement('tr');
   headRow1.innerHTML = `
-    <th rowspan="3">Party name</th>
-    ${sitesInScope.length ? `<th colspan="${sitesColspan}" class="group-start center">Sites</th>` : ''}
-    <th rowspan="3" class="num group-start">Total trips</th>
-    <th rowspan="3" class="num">Total ${qtyLabel}</th>
-    <th rowspan="3" class="num">Target %</th>
+    <th rowspan="2">Party name</th>
+    ${sitesInScope.map((site, idx) => idx === 0 ? `
+      <th rowspan="2" class="num group-start">Fleet</th>
+      <th rowspan="2" class="num">Target trips</th>
+      <th colspan="2" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>
+    ` : `
+      <th colspan="2" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>
+    `).join('')}
+    <th rowspan="2" class="num group-start">Total trips</th>
+    <th rowspan="2" class="num">Total ${qtyLabel}</th>
+    <th rowspan="2" class="num">Target %</th>
   `;
   thead.appendChild(headRow1);
 
   const headRow2 = document.createElement('tr');
-  headRow2.innerHTML = sitesInScope.map((site, idx) =>
-    `<th colspan="${idx === 0 ? 4 : 2}" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>`
-  ).join('');
-  thead.appendChild(headRow2);
-
-  const headRow3 = document.createElement('tr');
-  headRow3.innerHTML = sitesInScope.map((site, idx) => idx === 0 ? `
-    <th class="num group-start">Fleet</th>
-    <th class="num">Target trips</th>
-    <th class="num">Trips</th>
-    <th class="num">${qtyLabel}</th>
-  ` : `
+  headRow2.innerHTML = sitesInScope.map(() => `
     <th class="num group-start">Trips</th>
     <th class="num">${qtyLabel}</th>
   `).join('');
-  thead.appendChild(headRow3);
+  thead.appendChild(headRow2);
 
   /* ---- BODY: one row per party ---- */
   const body = document.getElementById('tableBody');
@@ -1041,7 +1035,7 @@ function renderTable(rows){
     const siteCellsHtml = pr.siteCells.map((c, idx) => idx === 0 ? `
       <td class="qty group-start">${c.trucks}</td>
       <td class="qty">${c.targetTrips}</td>
-      <td class="qty">${c.trips}</td>
+      <td class="qty group-start">${c.trips}</td>
       <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
     ` : `
       <td class="qty group-start">${c.trips}</td>
@@ -1062,7 +1056,7 @@ function renderTable(rows){
   const totalSiteCellsHtml = model.totals.siteCells.map((c, idx) => idx === 0 ? `
     <td class="qty group-start">${c.trucks}</td>
     <td class="qty">${c.targetTrips}</td>
-    <td class="qty">${c.trips}</td>
+    <td class="qty group-start">${c.trips}</td>
     <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
   ` : `
     <td class="qty group-start">${c.trips}</td>
@@ -1101,69 +1095,89 @@ function formatDMY(d){
  * report model the on-screen table renders from — so the PDF always
  * matches the interface exactly, column for column, including the
  * "first site only" Fleet/Target trips rule.
+ *
+ * Two header rows only (no spanning "Sites" cell): the site name sits
+ * directly above just its Trips + Qty columns, matching the frontend.
  */
 function buildPdfHeadBodyFoot(model){
   const { sitesInScope, qtyLabel, partyRows, totals } = model;
 
-  const sitesColspan = sitesInScope.length ? (4 + 2 * (sitesInScope.length - 1)) : 0;
-
-  const headRow1 = [{ content: 'Party name', rowSpan: 3, styles: { valign: 'middle' } }];
-  if (sitesInScope.length){
-    headRow1.push({ content: 'Sites', colSpan: sitesColspan, styles: { halign: 'center' } });
-  }
-  headRow1.push(
-    { content: 'Total trips', rowSpan: 3, styles: { valign: 'middle', halign: 'right' } },
-    { content: 'Total ' + qtyLabel, rowSpan: 3, styles: { valign: 'middle', halign: 'right' } },
-    { content: 'Target %', rowSpan: 3, styles: { valign: 'middle', halign: 'right' } }
-  );
-
-  const headRow2 = sitesInScope.map((site, idx) => ({
-    content: abbreviateSite(site), colSpan: idx === 0 ? 4 : 2, styles: { halign: 'center' }
-  }));
-
-  const headRow3 = [];
+  const headRow1 = [{ content: 'Party name', rowSpan: 2, styles: { valign: 'middle' } }];
   sitesInScope.forEach((site, idx) => {
     if (idx === 0){
-      headRow3.push(
-        { content: 'Fleet', styles: { halign: 'right' } },
-        { content: 'Target trips', styles: { halign: 'right' } },
-        { content: 'Trips', styles: { halign: 'right' } },
-        { content: qtyLabel, styles: { halign: 'right' } }
+      headRow1.push(
+        { content: 'Fleet', rowSpan: 2, styles: { valign: 'middle' } },
+        { content: 'Target trips', rowSpan: 2, styles: { valign: 'middle' } },
+        { content: abbreviateSite(site), colSpan: 2, styles: { halign: 'center' } }
       );
     } else {
-      headRow3.push(
-        { content: 'Trips', styles: { halign: 'right' } },
-        { content: qtyLabel, styles: { halign: 'right' } }
-      );
+      headRow1.push({ content: abbreviateSite(site), colSpan: 2, styles: { halign: 'center' } });
     }
   });
+  headRow1.push(
+    { content: 'Total trips', rowSpan: 2, styles: { valign: 'middle' } },
+    { content: 'Total ' + qtyLabel, rowSpan: 2, styles: { valign: 'middle' } },
+    { content: 'Target %', rowSpan: 2, styles: { valign: 'middle' } }
+  );
 
-  const head = [headRow1, headRow2, headRow3];
+  const headRow2 = [];
+  sitesInScope.forEach(() => {
+    headRow2.push(
+      { content: 'Trips' },
+      { content: qtyLabel }
+    );
+  });
+
+  const head = [headRow1, headRow2];
 
   const body = partyRows.map(pr => {
     const row = [pr.party];
     pr.siteCells.forEach((c, idx) => {
       if (idx === 0){
-        row.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2));
+        row.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2) + ' MT');
       } else {
-        row.push(String(c.trips), c.qty.toFixed(2));
+        row.push(String(c.trips), c.qty.toFixed(2) + ' MT');
       }
     });
-    row.push(String(pr.totalTrips), pr.totalQty.toFixed(2), pr.targetPct.toFixed(1) + '%');
+    row.push(String(pr.totalTrips), pr.totalQty.toFixed(2) + ' MT', pr.targetPct.toFixed(1) + '%');
     return row;
   });
 
   const footRow = ['TOTAL'];
   totals.siteCells.forEach((c, idx) => {
     if (idx === 0){
-      footRow.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2));
+      footRow.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2) + ' MT');
     } else {
-      footRow.push(String(c.trips), c.qty.toFixed(2));
+      footRow.push(String(c.trips), c.qty.toFixed(2) + ' MT');
     }
   });
-  footRow.push(String(totals.trips), totals.qty.toFixed(2), totals.targetPct.toFixed(1) + '%');
+  footRow.push(String(totals.trips), totals.qty.toFixed(2) + ' MT', totals.targetPct.toFixed(1) + '%');
 
   return { head, body, foot: [footRow] };
+}
+
+/**
+ * Which PDF columns get shrunk to 85% (i.e. -15%) of their natural width:
+ * every "Target trips" column, every qty column (one per site in scope —
+ * "Loading qty" or "Unloading qty" depending on mode), and the three
+ * aggregate columns (Total trips / Total qty / Target %). Party name,
+ * Fleet, and every "Trips" column are left exactly as they currently
+ * render — untouched, per the "don't change at any circumstance" rule.
+ *
+ * Column order matches buildPdfHeadBodyFoot()'s body rows exactly:
+ * [Party, (Fleet, Target trips, Trips, Qty) for site 1, (Trips, Qty) for
+ * each further site, Total trips, Total qty, Target %].
+ */
+function computePdfReduceMap(numSites){
+  const map = [false]; // Party name — unchanged
+  if (numSites > 0){
+    map.push(false, true, false, true); // Fleet, Target trips*, Trips, Qty*  (site 1)
+    for (let i = 1; i < numSites; i++){
+      map.push(false, true); // Trips, Qty*  (each further site)
+    }
+  }
+  map.push(true, true, true); // Total trips*, Total qty*, Target %*
+  return map;
 }
 
 document.getElementById('pdfBtn').addEventListener('click', () => {
@@ -1177,6 +1191,65 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   }
 
   const { jsPDF } = window.jspdf;
+  const { head, body, foot } = buildPdfHeadBodyFoot(lastReportModel);
+  const numCols = body[0] ? body[0].length : 4;
+  const reduceMap = computePdfReduceMap(lastReportModel.sitesInScope.length);
+
+  const sharedTableOptions = {
+    theme: 'grid',
+    styles: {
+      fontSize: 7.5, cellPadding: 4, textColor: [16, 24, 32],
+      lineWidth: 0.5, lineColor: [140, 150, 150] // explicit grid lines so every cell is boxed, matching the frontend
+    },
+    headStyles: {
+      fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold', fontSize: 7.5,
+      lineWidth: 0.5, lineColor: [140, 150, 150], halign: 'center'
+    },
+    alternateRowStyles: { fillColor: [247, 249, 248] },
+    footStyles: {
+      fillColor: [222, 229, 227], textColor: [16, 24, 32], fontStyle: 'bold',
+      lineWidth: 0.5, lineColor: [140, 150, 150]
+    },
+    columnStyles: { 0: { cellWidth: 110 } }, // Party name a bit wider; unchanged, exactly as before
+    didParseCell: (data) => {
+      // Every column's data except Party name (column 0) is right-aligned;
+      // header labels keep their own alignment (center, as set above).
+      if (data.column.index !== 0 && data.row.section !== 'head'){
+        data.cell.styles.halign = 'right';
+      }
+    }
+  };
+
+  /* ---- Pass 1 (measurement only — this table is never saved or shown):
+     lay the report out exactly as it renders today (full-width auto
+     layout) and read back the width autoTable computed for every column,
+     via willDrawCell. That's "the current column length" the instruction
+     means to preserve for every column that isn't on the reduce list. ---- */
+  const measureDoc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const naturalWidths = new Array(numCols).fill(null);
+  measureDoc.autoTable(Object.assign({}, sharedTableOptions, {
+    head, body, foot,
+    willDrawCell: (data) => {
+      if (data.row.section === 'body' && naturalWidths[data.column.index] == null){
+        naturalWidths[data.column.index] = data.cell.width;
+      }
+    }
+  }));
+  // Safety net only — every column should always appear in a body cell.
+  for (let i = 0; i < numCols; i++){
+    if (naturalWidths[i] == null) naturalWidths[i] = i === 0 ? 110 : 45;
+  }
+
+  /* ---- Pass 2 — the real export: same widths, except every column on
+     the reduce list is shrunk to 85% of its natural width. tableWidth:
+     'wrap' stops autoTable from stretching the now-narrower table back
+     out to fill the page — whatever space that frees up is simply left
+     blank/white rather than being redistributed to other columns. ---- */
+  const columnStyles = {};
+  for (let i = 0; i < numCols; i++){
+    columnStyles[i] = { cellWidth: reduceMap[i] ? naturalWidths[i] * 0.85 : naturalWidths[i] };
+  }
+
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
   const siteLabel = filterState.sites.has('ALL')
@@ -1212,19 +1285,13 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   doc.setFontSize(10);
   doc.text(`Mode: ${modeLabel}`, 40, 102);
 
-  const { head, body, foot } = buildPdfHeadBodyFoot(lastReportModel);
-
-  doc.autoTable({
+  doc.autoTable(Object.assign({}, sharedTableOptions, {
     head, body, foot,
     startY: 116,
-    theme: 'grid',
     showFoot: 'lastPage', // Total row only at the end of the last page, not repeated per page
-    styles: { fontSize: 7.5, cellPadding: 4, textColor: [16, 24, 32] },
-    headStyles: { fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold', fontSize: 7.5 },
-    alternateRowStyles: { fillColor: [247, 249, 248] },
-    footStyles: { fillColor: [222, 229, 227], textColor: [16, 24, 32], fontStyle: 'bold' },
-    columnStyles: { 0: { cellWidth: 110 } } // Party name a bit wider; remaining columns auto-fit the page
-  });
+    tableWidth: 'wrap',   // don't stretch to fill the page — leftover space stays blank/white
+    columnStyles
+  }));
 
   const fileDate = new Date().toISOString().slice(0, 10);
   doc.save(`transporting-report_${fileDate}.pdf`);
