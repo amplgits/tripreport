@@ -2,9 +2,16 @@
 <html lang="en" data-theme="light">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Transporting Report</title>
 <link rel="icon" type="image/png" href="https://wingzinfotech.in/img/ampl.jpg">
+<link rel="apple-touch-icon" href="https://wingzinfotech.in/img/ampl.jpg">
+<link rel="manifest" id="manifestLink">
+<meta name="theme-color" content="#0E9C8F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Transport Rpt">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,18 +47,24 @@
 
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
+html{-webkit-text-size-adjust:100%;}
 body{
   background:var(--bg); color:var(--ink); font-family:var(--font-body);
   min-height:100vh; -webkit-font-smoothing:antialiased;
   transition:background .35s ease,color .35s ease;
+  overscroll-behavior-y:contain;
 }
 ::selection{background:var(--loading-soft);}
 button, input, select{font-family:inherit;}
-.app{max-width:1180px;margin:0 auto;padding:0 20px 64px;}
+button,.chip,.ms-trigger,.field select,.field input,.theme-toggle{
+  touch-action:manipulation; -webkit-tap-highlight-color:transparent;
+}
+.app{max-width:1180px;margin:0 auto;padding:0 20px 64px;padding-bottom:calc(64px + env(safe-area-inset-bottom));}
 
 .topbar{
   position:sticky; top:0; z-index:40; background:var(--bg);
-  padding:20px 0 16px; display:flex; align-items:center; gap:16px;
+  padding:20px 0 16px; padding-top:calc(20px + env(safe-area-inset-top));
+  display:flex; align-items:center; gap:16px;
   border-bottom:1px solid var(--line); margin-bottom:22px;
 }
 .topbar::after{
@@ -135,6 +148,7 @@ button, input, select{font-family:inherit;}
   border:1px solid var(--line-strong); background:var(--surface); color:var(--ink); cursor:pointer;
   min-width:180px; text-align:left; position:relative; transition:border-color .15s;
 }
+.ms-trigger:disabled, .ms-trigger.disabled{cursor:not-allowed; color:var(--ink-faint); background:var(--surface-alt);}
 .ms-trigger:after{
   content:''; position:absolute; right:12px; top:50%; width:8px;height:8px;
   border-right:1.5px solid var(--ink-faint); border-bottom:1.5px solid var(--ink-faint);
@@ -200,6 +214,7 @@ button, input, select{font-family:inherit;}
 
 .table-wrap{
   overflow-x:auto; overflow-y:auto; max-height:64vh;
+  -webkit-overflow-scrolling:touch;
 }
 table{border-collapse:collapse; font-size:14px; table-layout:fixed;}
 thead th{
@@ -215,6 +230,10 @@ tbody tr:hover td{background:var(--surface-alt);}
 .party-cell{
   font-weight:600; font-size:13.5px; border-left:3px solid transparent; position:relative;
   white-space:normal; overflow-wrap:break-word; word-break:break-word; line-height:1.4;
+}
+.site-cell{
+  font-family:var(--font-mono); font-weight:600; font-size:12.5px; letter-spacing:.4px;
+  color:var(--ink-soft);
 }
 .qty{font-family:var(--font-mono); font-weight:600; text-align:right; white-space:nowrap;}
 .qty.loading-col{color:var(--loading-ink);}
@@ -236,9 +255,11 @@ tfoot .total-label{
 }
 
 .toast{
-  position:fixed; bottom:24px; right:24px; background:var(--surface); border:1px solid var(--line-strong);
+  position:fixed; bottom:24px; bottom:calc(24px + env(safe-area-inset-bottom)); right:24px;
+  background:var(--surface); border:1px solid var(--line-strong);
   border-radius:var(--radius-sm); box-shadow:var(--shadow-lg); padding:14px 18px; display:flex;
-  align-items:center; gap:12px; min-width:260px; z-index:100; transform:translateY(20px); opacity:0;
+  align-items:center; gap:12px; min-width:260px; max-width:calc(100vw - 48px); z-index:100;
+  transform:translateY(20px); opacity:0;
   transition:transform .3s ease, opacity .3s ease; pointer-events:none;
 }
 .toast.show{transform:translateY(0); opacity:1; pointer-events:auto;}
@@ -259,13 +280,22 @@ tfoot .total-label{
 .numInputWrapper span, .flatpickr-prev-month svg, .flatpickr-next-month svg{fill:var(--ink-soft)!important;}
 
 @media (max-width:720px){
-  .app{padding:0 14px 48px;}
-  .topbar{flex-wrap:wrap; padding-top:16px;}
+  .app{padding:0 14px 48px; padding-bottom:calc(48px + env(safe-area-inset-bottom));}
+  .topbar{flex-wrap:wrap; padding-top:calc(16px + env(safe-area-inset-top));}
   .brand-text span{display:none;}
   .filter-row{gap:12px;}
-  .field, .ms-trigger, .field select, .field input{min-width:130px;}
+  .field, .ms-trigger, .field select, .field input{min-width:0; width:100%;}
   thead th, tbody td, tfoot td{padding:10px 12px;}
   .table-wrap{max-height:65vh;}
+  .site-cards{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; width:100%;}
+  .site-card{min-width:0;}
+  .btn{width:100%; justify-content:center; padding:12px 16px; font-size:14px;}
+  .chip{padding:11px 16px; flex:1; justify-content:center;}
+  .mode-group{width:100%;}
+  .theme-toggle{width:44px; height:44px;}
+  .actions-row{flex-direction:column;}
+  .actions-row .spacer{display:none;}
+  .ms-panel{width:100%; left:0; right:0;}
 }
 </style>
 </head>
@@ -313,16 +343,23 @@ tfoot .total-label{
           </div>
         </div>
         <div class="field">
-          <label for="siteSelect">Site</label>
-          <select id="siteSelect"><option value="ALL">All sites</option></select>
+          <label>Site</label>
+          <div class="multiselect" id="siteMultiselect">
+            <button type="button" class="ms-trigger" id="siteTrigger">Select site(s)</button>
+            <div class="ms-panel" id="sitePanel">
+              <div class="ms-search"><input type="text" id="siteSearch" placeholder="Search site…"></div>
+              <label class="ms-all"><input type="checkbox" id="siteAllCb"> All sites</label>
+              <div class="ms-list" id="siteList"></div>
+            </div>
+          </div>
         </div>
         <div class="field">
           <label>Party name</label>
           <div class="multiselect" id="partyMultiselect">
-            <button type="button" class="ms-trigger" id="partyTrigger">All parties</button>
+            <button type="button" class="ms-trigger disabled" id="partyTrigger">Select a site first</button>
             <div class="ms-panel" id="partyPanel">
               <div class="ms-search"><input type="text" id="partySearch" placeholder="Search party…"></div>
-              <label class="ms-all"><input type="checkbox" id="partyAllCb" checked> All parties</label>
+              <label class="ms-all"><input type="checkbox" id="partyAllCb"> All parties</label>
               <div class="ms-list" id="partyList"></div>
             </div>
           </div>
@@ -331,7 +368,7 @@ tfoot .total-label{
       <div class="filter-row">
         <div class="site-cards" id="siteCards"></div>
       </div>
-      <div class="filter-row">
+      <div class="filter-row actions-row">
         <button class="btn" id="clearBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m3 0l-1 14a2 2 0 01-2 2H7a2 2 0 01-2-2L4 6"/></svg>
           Clear filters
@@ -357,25 +394,29 @@ tfoot .total-label{
     <div class="empty-state" id="emptyState">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3h8l4 4v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>
       <h3>No trips on screen yet</h3>
-      <p>Pick a From and To date, choose Loading or Unloading, and select a specific Site to bring up the register.</p>
+      <p>Pick a From and To date, choose Loading or Unloading, and select at least one Site to bring up the register.</p>
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none;">
       <table id="reportTable">
         <colgroup>
-          <col style="width:200px">
+          <col style="width:190px">
           <col style="width:90px">
+          <col style="width:110px">
           <col style="width:90px">
-          <col style="width:130px">
-          <col style="width:130px">
-          <col style="width:180px">
+          <col style="width:110px">
+          <col style="width:90px">
+          <col style="width:140px">
+          <col style="width:150px">
         </colgroup>
         <thead>
           <tr id="tableHeadRow">
             <th>Party name</th>
+            <th>Site</th>
+            <th class="num">Target trips</th>
             <th class="num">Trips</th>
+            <th class="num">Target %</th>
             <th class="num">Trucks</th>
             <th class="num">Loading qty</th>
-            <th class="num">Avg loading</th>
             <th class="num">Avg trips/truck</th>
           </tr>
         </thead>
@@ -404,9 +445,14 @@ tfoot .total-label{
 const FIREBASE_URL = 'https://projecttrip-b7b47-default-rtdb.asia-southeast1.firebasedatabase.app';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ2LHsQIIoa5H-anPJW3sTL6yW6S_e1sv1dRIJApMfY5aJigEqAGSEoPYr9R6wIV74/exec';
 
-// Known site name → short code shown on the summary cards and in the PDF.
-// Any site not listed here falls back to auto-generated initials, so a
-// new site added later still gets a reasonable short code automatically.
+// How many trips per truck per day counts as "on target" — used to
+// compute Target Trips = days in range × TARGET_TRIPS_PER_TRUCK_PER_DAY × trucks.
+const TARGET_TRIPS_PER_TRUCK_PER_DAY = 4;
+
+// Known site name → short code shown on the summary cards and in the
+// table's Site column / PDF. Any site not listed here falls back to
+// auto-generated initials, so a new site added later still gets a
+// reasonable short code automatically.
 const SITE_ABBREVIATIONS = {
   'G. BEGUNIA OC PATCH': 'GBOCP',
   'GOURANGDIH EXPANSION OCP': 'GEOCP'
@@ -423,12 +469,38 @@ function abbreviateSite(name){
 }
 
 /* =================================================================
+   APP MANIFEST (mobile "Add to Home Screen" / standalone launch)
+   ================================================================= */
+(function setupManifest(){
+  const manifest = {
+    name: 'Transporting Report',
+    short_name: 'Transport Rpt',
+    start_url: '.',
+    display: 'standalone',
+    background_color: '#F1F4F3',
+    theme_color: '#0E9C8F',
+    icons: [
+      { src: 'https://wingzinfotech.in/img/ampl.jpg', sizes: '192x192', type: 'image/jpeg' },
+      { src: 'https://wingzinfotech.in/img/ampl.jpg', sizes: '512x512', type: 'image/jpeg' }
+    ]
+  };
+  try{
+    const blob = new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' });
+    document.getElementById('manifestLink').setAttribute('href', URL.createObjectURL(blob));
+  } catch(e){ /* manifest is a nice-to-have — ignore failures */ }
+})();
+
+/* =================================================================
    STATE
    ================================================================= */
 let allTrips = [];
 let uniqueSites = [];
-let uniqueParties = [];
-const filterState = { from: null, to: null, mode: null, site: 'ALL', parties: new Set(['ALL']) };
+let uniqueParties = []; // scoped to the currently selected site(s)
+const filterState = {
+  from: null, to: null, mode: null,
+  sites: new Set(),            // empty = nothing picked yet; 'ALL' = every site
+  parties: new Set()           // empty = nothing picked yet; 'ALL' = every party in scope
+};
 
 /* =================================================================
    THEME
@@ -459,15 +531,14 @@ const ICON_MINUS = '<path d="M5 12h14"/>';
 const ICON_PLUS = '<path d="M12 5v14M5 12h14"/>';
 let filtersCollapsed = false;
 
-// Start expanded with overflow visible so the Party dropdown (and any
-// other popover) isn't clipped by the collapse container while it's open.
+// Start expanded with overflow visible so the Party/Site dropdowns
+// (and any other popover) aren't clipped by the collapse container.
 filtersBody.style.overflow = 'visible';
 
 filtersToggle.addEventListener('click', () => {
   filtersCollapsed = !filtersCollapsed;
 
   if (filtersCollapsed){
-    // clip immediately, then animate the real measured height down to 0
     filtersBody.style.overflow = 'hidden';
     filtersBody.style.height = filtersBody.scrollHeight + 'px';
     requestAnimationFrame(() => { filtersBody.style.height = '0px'; });
@@ -520,13 +591,75 @@ chipLoading.addEventListener('click', (e) => { e.preventDefault(); setMode(filte
 chipUnloading.addEventListener('click', (e) => { e.preventDefault(); setMode(filterState.mode === 'unloading' ? null : 'unloading'); });
 
 /* =================================================================
-   SITE FILTER
+   SITE MULTISELECT
+   Selecting site(s) re-scopes the Party dropdown to only the parties
+   that actually operate at the chosen site(s), and defaults the Party
+   filter to "All parties" within that new scope.
    ================================================================= */
-const siteSelect = document.getElementById('siteSelect');
-siteSelect.addEventListener('change', () => { filterState.site = siteSelect.value; applyFilters(); });
+const siteTrigger = document.getElementById('siteTrigger');
+const sitePanel = document.getElementById('sitePanel');
+const siteList = document.getElementById('siteList');
+const siteAllCb = document.getElementById('siteAllCb');
+const siteSearch = document.getElementById('siteSearch');
+
+siteTrigger.addEventListener('click', () => sitePanel.classList.toggle('open'));
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('siteMultiselect').contains(e.target)) sitePanel.classList.remove('open');
+});
+
+function renderSiteList(filterText){
+  const q = (filterText || '').trim().toUpperCase();
+  siteList.innerHTML = '';
+  const isAll = filterState.sites.has('ALL');
+  const matches = uniqueSites.filter(s => s.toUpperCase().includes(q));
+  if (!matches.length){
+    siteList.innerHTML = '<div class="ms-empty">No sites match</div>';
+    return;
+  }
+  matches.forEach(site => {
+    const row = document.createElement('label');
+    row.className = 'ms-item' + (isAll ? ' disabled' : '');
+    const checked = !isAll && filterState.sites.has(site);
+    row.innerHTML = `<input type="checkbox" data-site="${escapeHtml(site)}" ${checked ? 'checked' : ''}> ${escapeHtml(site)}`;
+    siteList.appendChild(row);
+  });
+  siteList.querySelectorAll('input[data-site]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const s = cb.getAttribute('data-site');
+      if (cb.checked) filterState.sites.add(s); else filterState.sites.delete(s);
+      filterState.sites.delete('ALL');
+      onSiteSelectionChanged();
+    });
+  });
+}
+siteAllCb.addEventListener('change', () => {
+  filterState.sites = siteAllCb.checked ? new Set(['ALL']) : new Set();
+  renderSiteList(siteSearch.value);
+  onSiteSelectionChanged();
+});
+siteSearch.addEventListener('input', () => renderSiteList(siteSearch.value));
+
+function updateSiteTriggerLabel(){
+  if (filterState.sites.has('ALL')) siteTrigger.textContent = 'All sites';
+  else if (filterState.sites.size === 0) siteTrigger.textContent = 'Select site(s)';
+  else if (filterState.sites.size === 1) siteTrigger.textContent = abbreviateSite([...filterState.sites][0]);
+  else siteTrigger.textContent = filterState.sites.size + ' sites selected';
+}
+
+function onSiteSelectionChanged(){
+  updateSiteTriggerLabel();
+  computePartyOptionsForSites();
+  // default to "all parties" within the newly selected site scope
+  filterState.parties = uniqueParties.length ? new Set(['ALL']) : new Set();
+  partyAllCb.checked = filterState.parties.has('ALL');
+  renderPartyList(partySearch.value);
+  updatePartyTriggerLabel();
+  updatePartyEnabledState();
+  applyFilters();
+}
 
 /* =================================================================
-   PARTY MULTISELECT
+   PARTY MULTISELECT (options scoped to the selected site(s))
    ================================================================= */
 const partyTrigger = document.getElementById('partyTrigger');
 const partyPanel = document.getElementById('partyPanel');
@@ -534,10 +667,22 @@ const partyList = document.getElementById('partyList');
 const partyAllCb = document.getElementById('partyAllCb');
 const partySearch = document.getElementById('partySearch');
 
-partyTrigger.addEventListener('click', () => partyPanel.classList.toggle('open'));
+partyTrigger.addEventListener('click', () => {
+  if (filterState.sites.size === 0) return; // pick a site first
+  partyPanel.classList.toggle('open');
+});
 document.addEventListener('click', (e) => {
   if (!document.getElementById('partyMultiselect').contains(e.target)) partyPanel.classList.remove('open');
 });
+
+function computePartyOptionsForSites(){
+  const parties = new Set();
+  allTrips.forEach(t => {
+    if (!t.party) return;
+    if (filterState.sites.has('ALL') || filterState.sites.has(t.source)) parties.add(t.party);
+  });
+  uniqueParties = [...parties].sort();
+}
 
 function renderPartyList(filterText){
   const q = (filterText || '').trim().toUpperCase();
@@ -545,14 +690,14 @@ function renderPartyList(filterText){
   const isAll = filterState.parties.has('ALL');
   const matches = uniqueParties.filter(p => p.toUpperCase().includes(q));
   if (!matches.length){
-    partyList.innerHTML = '<div class="ms-empty">No parties match</div>';
+    partyList.innerHTML = `<div class="ms-empty">${filterState.sites.size === 0 ? 'Select a site first' : 'No parties match'}</div>`;
     return;
   }
   matches.forEach(party => {
     const row = document.createElement('label');
     row.className = 'ms-item' + (isAll ? ' disabled' : '');
     const checked = !isAll && filterState.parties.has(party);
-    row.innerHTML = `<input type="checkbox" data-party="${party}" ${checked ? 'checked' : ''}> ${party}`;
+    row.innerHTML = `<input type="checkbox" data-party="${escapeHtml(party)}" ${checked ? 'checked' : ''}> ${escapeHtml(party)}`;
     partyList.appendChild(row);
   });
   partyList.querySelectorAll('input[data-party]').forEach(cb => {
@@ -578,10 +723,16 @@ partyAllCb.addEventListener('change', () => {
 partySearch.addEventListener('input', () => renderPartyList(partySearch.value));
 
 function updatePartyTriggerLabel(){
-  if (filterState.parties.has('ALL')) partyTrigger.textContent = 'All parties';
+  if (filterState.sites.size === 0) partyTrigger.textContent = 'Select a site first';
+  else if (filterState.parties.has('ALL')) partyTrigger.textContent = 'All parties';
   else if (filterState.parties.size === 0) partyTrigger.textContent = 'No parties selected';
   else if (filterState.parties.size === 1) partyTrigger.textContent = [...filterState.parties][0];
   else partyTrigger.textContent = filterState.parties.size + ' parties selected';
+}
+function updatePartyEnabledState(){
+  const enabled = filterState.sites.size > 0;
+  partyTrigger.classList.toggle('disabled', !enabled);
+  if (!enabled) partyPanel.classList.remove('open');
 }
 
 /* =================================================================
@@ -591,9 +742,11 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   fpFrom.clear(); fpTo.clear();
   filterState.from = null; filterState.to = null;
   setMode(null);
-  siteSelect.value = 'ALL'; filterState.site = 'ALL';
-  partyAllCb.checked = true; filterState.parties = new Set(['ALL']);
-  renderPartyList(''); updatePartyTriggerLabel();
+  filterState.sites = new Set(); siteAllCb.checked = false;
+  filterState.parties = new Set(); partyAllCb.checked = false;
+  renderSiteList(''); updateSiteTriggerLabel();
+  uniqueParties = [];
+  renderPartyList(''); updatePartyTriggerLabel(); updatePartyEnabledState();
   applyFilters();
 });
 document.getElementById('refreshBtn').addEventListener('click', loadData);
@@ -615,19 +768,18 @@ async function loadData(){
 }
 
 function computeFilterOptions(){
-  const sites = new Set(); const parties = new Set();
-  allTrips.forEach(t => { if (t.source) sites.add(t.source); if (t.party) parties.add(t.party); });
+  const sites = new Set();
+  allTrips.forEach(t => { if (t.source) sites.add(t.source); });
   uniqueSites = [...sites].sort();
-  uniqueParties = [...parties].sort();
 
-  const prevSite = siteSelect.value || 'ALL';
-  siteSelect.innerHTML = '<option value="ALL">All sites</option>' +
-    uniqueSites.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-  siteSelect.value = uniqueSites.includes(prevSite) ? prevSite : 'ALL';
-  filterState.site = siteSelect.value;
+  renderSiteList(siteSearch.value);
+  updateSiteTriggerLabel();
 
+  computePartyOptionsForSites();
   renderPartyList(partySearch.value);
   updatePartyTriggerLabel();
+  updatePartyEnabledState();
+
   renderSiteCards();
 }
 
@@ -635,15 +787,12 @@ function computeFilterOptions(){
    SITE SUMMARY CARDS
    ================================================================= */
 /**
- * One card per unique site, showing Trip Count and Quantity — always
- * covering every party at that site, independent of the Site/Party
- * filters, so they read as a stable per-site overview.
+ * One card per SELECTED site (not every site — that's the point of
+ * this change), showing Trip Count and Quantity, always covering every
+ * party at that site regardless of the Party filter.
  *
- * Cards require BOTH a full date range (From + To) AND a Mode to be
- * selected — same gate as the main table. Until then, no cards render
- * at all. Once open, the labels themselves are mode-prefixed
- * ("Loading Trips" / "Loading Total qty" or "Unloading Trips" /
- * "Unloading Total qty") rather than a generic "Trips"/"Qty".
+ * Cards require a full date range (From + To), a Mode, AND at least
+ * one Site to be selected. Until then, no cards render at all.
  */
 function renderSiteCards(){
   const container = document.getElementById('siteCards');
@@ -651,8 +800,13 @@ function renderSiteCards(){
   container.innerHTML = '';
   if (!uniqueSites.length) return;
 
-  const gateOpen = filterState.from && filterState.to && filterState.mode;
-  if (!gateOpen) return; // no cards until date range + mode are both selected
+  const gateOpen = filterState.from && filterState.to && filterState.mode && filterState.sites.size > 0;
+  if (!gateOpen) return;
+
+  const sitesToShow = filterState.sites.has('ALL')
+    ? uniqueSites
+    : uniqueSites.filter(s => filterState.sites.has(s));
+  if (!sitesToShow.length) return;
 
   const fromMs = new Date(filterState.from.getFullYear(), filterState.from.getMonth(), filterState.from.getDate()).getTime();
   const toMs = new Date(filterState.to.getFullYear(), filterState.to.getMonth(), filterState.to.getDate()).getTime();
@@ -660,7 +814,7 @@ function renderSiteCards(){
   const qtyField = filterState.mode === 'loading' ? 'loadingQty' : 'unloadingQty';
   const modeWord = filterState.mode === 'loading' ? 'Loading' : 'Unloading';
 
-  uniqueSites.forEach(site => {
+  sitesToShow.forEach(site => {
     let trips = 0, qty = 0;
 
     allTrips.forEach(t => {
@@ -698,12 +852,12 @@ function applyFilters(){
   const tableWrap = document.getElementById('tableWrap');
   const tableFooter = document.getElementById('tableFooter');
 
-  // The table now also requires a specific Site to be picked — "All
-  // sites" is no longer enough on its own to bring up the register.
-  const gateOpen = filterState.from && filterState.to && filterState.mode && filterState.site !== 'ALL';
+  // At least one Site must be selected (specific site(s) or "All sites")
+  // for the register to appear at all.
+  const gateOpen = filterState.from && filterState.to && filterState.mode && filterState.sites.size > 0;
   if (!gateOpen){
     emptyState.querySelector('h3').textContent = 'No trips on screen yet';
-    emptyState.querySelector('p').textContent = 'Pick a From and To date, choose Loading or Unloading, and select a specific Site to bring up the register.';
+    emptyState.querySelector('p').textContent = 'Pick a From and To date, choose Loading or Unloading, and select at least one Site to bring up the register.';
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
@@ -719,14 +873,14 @@ function applyFilters(){
     if (!key) return false;
     const ms = keyToDate(key).getTime();
     if (ms < fromMs || ms > toMs) return false;
-    if (t.source !== filterState.site) return false;
+    if (!filterState.sites.has('ALL') && !filterState.sites.has(t.source)) return false;
     if (!filterState.parties.has('ALL') && !filterState.parties.has(t.party)) return false;
     return true;
   });
 
   if (!filtered.length){
     emptyState.querySelector('h3').textContent = 'No trips match these filters';
-    emptyState.querySelector('p').textContent = 'Try widening the date range or clearing the party filter.';
+    emptyState.querySelector('p').textContent = 'Try widening the date range or adjusting the Site/Party filters.';
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
@@ -745,33 +899,38 @@ function applyFilters(){
 }
 
 /**
- * Groups the filtered trip rows by party and renders one summary row per
- * party: trip count, unique truck count, the mode-relevant quantity sum
- * + average, and average trips per truck per day. A Total row is added
- * to the table's <tfoot>, which also carries straight through into the
- * PDF export since that reads directly from this same table.
+ * Groups the filtered trip rows by SITE + PARTY (since multiple sites
+ * can now be selected at once, each row needs to say which site it
+ * belongs to) and renders one summary row per site/party pair:
+ * Target Trips, Trip count, Target Completion %, unique truck count,
+ * the mode-relevant quantity sum, and average trips per truck per day.
+ * A Total row is added to the table's <tfoot>, which also carries
+ * straight through into the PDF export since that reads directly from
+ * this same table.
  *
- * The Loading/Unloading quantity columns are mode-driven — since the date
+ * Target Trips = days in the selected date range × 4 × unique trucks
+ * for that site/party group.
+ * Target % = (Target Trips ÷ Trips) × 100.
+ *
+ * The Loading/Unloading quantity column is mode-driven — since the date
  * filter itself already requires exactly one mode to be selected, the
- * same two columns just relabel and recolor themselves rather than
- * showing both pairs at once.
- *
- * Avg trips/truck = trips ÷ (days in the selected date range × unique
- * trucks for that party).
+ * column just relabels and recolors itself rather than showing both
+ * pairs at once.
  */
 function renderTable(rows){
   const mode = filterState.mode;
   const qtyLabel = mode === 'loading' ? 'Loading qty' : 'Unloading qty';
-  const avgQtyLabel = mode === 'loading' ? 'Avg loading' : 'Avg unloading';
   const qtyColorClass = mode === 'loading' ? 'loading-col' : 'unloading-col';
   const qtyField = mode === 'loading' ? 'loadingQty' : 'unloadingQty';
 
   document.getElementById('tableHeadRow').innerHTML = `
     <th>Party name</th>
+    <th>Site</th>
+    <th class="num">Target trips</th>
     <th class="num">Trips</th>
+    <th class="num">Target %</th>
     <th class="num">Trucks</th>
     <th class="num">${qtyLabel}</th>
-    <th class="num">${avgQtyLabel}</th>
     <th class="num">Avg trips/truck</th>
   `;
 
@@ -782,8 +941,10 @@ function renderTable(rows){
 
   const groupMap = new Map();
   rows.forEach(r => {
-    const key = r.party || '(No party)';
-    if (!groupMap.has(key)) groupMap.set(key, { party: key, trips: 0, loadSum: 0, unloadSum: 0, trucks: new Set() });
+    const site = r.source || '(No site)';
+    const party = r.party || '(No party)';
+    const key = site + '\u241F' + party;
+    if (!groupMap.has(key)) groupMap.set(key, { site, party, trips: 0, loadSum: 0, unloadSum: 0, trucks: new Set() });
     const g = groupMap.get(key);
     g.trips += 1;
     g.loadSum += (r.loadingQty || 0);
@@ -791,45 +952,58 @@ function renderTable(rows){
     if (r.truckNo) g.trucks.add(r.truckNo);
   });
 
-  const groups = [...groupMap.values()].sort((a, b) => a.party.localeCompare(b.party));
+  const groups = [...groupMap.values()].sort((a, b) =>
+    a.site.localeCompare(b.site) || a.party.localeCompare(b.party)
+  );
 
   const body = document.getElementById('tableBody');
   body.innerHTML = '';
+  let totalTargetTrips = 0;
+
   groups.forEach(g => {
     const hue = hashHue(g.party);
     const truckCount = g.trucks.size;
     const qtySum = mode === 'loading' ? g.loadSum : g.unloadSum;
-    const avgQty = g.trips ? qtySum / g.trips : 0;
     const avgTripsPerTruck = truckCount ? g.trips / (days * truckCount) : 0;
+    const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * truckCount;
+    const targetPct = targetTrips ? (g.trips / targetTrips) * 100 : 0;
+    totalTargetTrips += targetTrips;
+
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(g.party)}</td>
+      <td class="site-cell" title="${escapeHtml(g.site)}">${escapeHtml(abbreviateSite(g.site))}</td>
+      <td class="qty">${targetTrips}</td>
       <td class="qty">${g.trips}</td>
+      <td class="qty">${targetPct.toFixed(1)}<span class="unit">%</span></td>
       <td class="qty">${truckCount}</td>
       <td class="qty ${qtyColorClass}">${qtySum.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty ${qtyColorClass}">${avgQty.toFixed(2)}<span class="unit">MT</span></td>
       <td class="qty">${avgTripsPerTruck.toFixed(2)}</td>
     `;
     body.appendChild(tr);
   });
 
-  // Total row: Total Trips, Total Trucks (distinct across ALL rows, not
-  // a sum of each party's unique-truck count), and Total Loading/
-  // Unloading qty. The two Avg columns aren't meaningfully summable, so
-  // they're left as a dash to keep the row's six cells aligned.
+  // Total row: Total Trips, Target Trips, Target %, Total Trucks
+  // (distinct across ALL rows, not a sum of each group's unique-truck
+  // count), and Total Loading/Unloading qty. Avg trips/truck isn't
+  // meaningfully summable, so it's left as a dash to keep the row's
+  // cells aligned.
   const totalTrips = rows.length;
   const totalTruckSet = new Set();
   rows.forEach(r => { if (r.truckNo) totalTruckSet.add(r.truckNo); });
   const totalTrucks = totalTruckSet.size;
   const totalQty = rows.reduce((s, r) => s + (r[qtyField] || 0), 0);
+  const totalTargetPct = totalTargetTrips ? (totalTrips / totalTargetTrips) * 100 : 0;
 
   document.getElementById('tableFoot').innerHTML = `
     <tr>
       <td class="party-cell total-label">TOTAL</td>
+      <td class="qty blank">—</td>
+      <td class="qty">${totalTargetTrips}</td>
       <td class="qty">${totalTrips}</td>
+      <td class="qty">${totalTargetPct.toFixed(1)}<span class="unit">%</span></td>
       <td class="qty">${totalTrucks}</td>
       <td class="qty ${qtyColorClass}">${totalQty.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty blank">—</td>
       <td class="qty blank">—</td>
     </tr>
   `;
@@ -855,8 +1029,8 @@ function formatDMY(d){
 /**
  * Reads the on-screen table into head/body/foot arrays, skipping the
  * given zero-based column indexes. Used instead of autoTable's `html`
- * mode so specific columns (Avg loading/unloading, Avg trips/truck) can
- * be left out of the PDF without touching what's shown on screen.
+ * mode so specific columns (Target %, Avg trips/truck) can be left out
+ * of the PDF without touching what's shown on screen.
  */
 function extractTableData(excludeCols){
   const keep = (i) => !excludeCols.includes(i);
@@ -891,7 +1065,13 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
 
-  const siteLabel = filterState.site === 'ALL' ? 'All Sites' : filterState.site;
+  const siteLabel = filterState.sites.has('ALL')
+    ? 'All Sites'
+    : filterState.sites.size === 0
+      ? '—'
+      : filterState.sites.size <= 3
+        ? [...filterState.sites].map(abbreviateSite).join(', ')
+        : filterState.sites.size + ' sites';
   const dateLabel = (filterState.from && filterState.to)
     ? `${formatDMY(filterState.from)} – ${formatDMY(filterState.to)}`
     : 'All dates';
@@ -918,10 +1098,10 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   doc.setFontSize(10);
   doc.text(`Mode: ${modeLabel}`, 40, 102);
 
-  // Columns 4 (Avg loading/unloading) and 5 (Avg trips/truck) are left
-  // out of the PDF — the on-screen table is untouched, only the export
-  // is narrowed.
-  const { head, body, foot } = extractTableData([4, 5]);
+  // Every column shown in the interface table is included in the PDF,
+  // in the same order: 0 Party, 1 Site, 2 Target trips, 3 Trips,
+  // 4 Target %, 5 Trucks, 6 Qty, 7 Avg trips/truck.
+  const { head, body, foot } = extractTableData([]);
 
   doc.autoTable({
     head, body, foot,
@@ -933,10 +1113,14 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
     alternateRowStyles: { fillColor: [247, 249, 248] },
     footStyles: { fillColor: [222, 229, 227], textColor: [16, 24, 32], fontStyle: 'bold' },
     columnStyles: {
-      0: { cellWidth: 180 }, // Party name
-      1: { cellWidth: 40 },  // Trips
-      2: { cellWidth: 40 },  // Trucks
-      3: { cellWidth: 70 }   // Loading/Unloading qty
+      0: { cellWidth: 130 }, // Party name
+      1: { cellWidth: 50 },  // Site
+      2: { cellWidth: 55 },  // Target trips
+      3: { cellWidth: 40 },  // Trips
+      4: { cellWidth: 50 },  // Target %
+      5: { cellWidth: 40 },  // Trucks
+      6: { cellWidth: 65 },  // Loading/Unloading qty
+      7: { cellWidth: 65 }   // Avg trips/truck
     }
   });
 
