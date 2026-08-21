@@ -216,33 +216,36 @@ button,.chip,.ms-trigger,.field select,.field input,.theme-toggle{
   overflow-x:auto; overflow-y:auto; max-height:64vh;
   -webkit-overflow-scrolling:touch;
 }
-table{border-collapse:collapse; font-size:14px; table-layout:fixed;}
+table{border-collapse:collapse; font-size:13.5px; table-layout:auto;}
+thead{position:sticky; top:0; z-index:5;}
 thead th{
-  text-align:left; padding:13px 20px; font-size:10.5px; font-weight:700; letter-spacing:1px;
+  text-align:left; padding:11px 14px; font-size:10px; font-weight:700; letter-spacing:.8px;
   text-transform:uppercase; color:var(--ink-faint); background:var(--surface-alt);
-  border-bottom:1px solid var(--line); position:sticky; top:0; z-index:5;
-  white-space:normal; word-break:break-word; line-height:1.4;
+  border-bottom:1px solid var(--line); white-space:normal; word-break:break-word; line-height:1.35;
+  vertical-align:middle;
 }
 thead th.num{text-align:right;}
-tbody td{padding:12px 20px; border-bottom:1px solid var(--line); vertical-align:middle;}
+thead th.center{text-align:center;}
+thead th.site-group-header{
+  background:var(--surface-hover); color:var(--ink-soft); font-size:11px; letter-spacing:.5px;
+  text-align:center;
+}
+.group-start{border-left:2px solid var(--line-strong) !important;}
+tbody td, tfoot td{padding:11px 14px; border-bottom:1px solid var(--line); vertical-align:middle; white-space:nowrap;}
 tbody tr:last-child td{border-bottom:none;}
 tbody tr:hover td{background:var(--surface-alt);}
 .party-cell{
   font-weight:600; font-size:13.5px; border-left:3px solid transparent; position:relative;
   white-space:normal; overflow-wrap:break-word; word-break:break-word; line-height:1.4;
 }
-.site-cell{
-  font-family:var(--font-mono); font-weight:600; font-size:12.5px; letter-spacing:.4px;
-  color:var(--ink-soft);
-}
 .qty{font-family:var(--font-mono); font-weight:600; text-align:right; white-space:nowrap;}
 .qty.loading-col{color:var(--loading-ink);}
 .qty.unloading-col{color:var(--unloading-ink);}
-.qty .unit{font-size:10.5px; color:var(--ink-faint); font-weight:500; margin-left:3px;}
+.qty .unit{font-size:10px; color:var(--ink-faint); font-weight:500; margin-left:3px;}
 .qty.blank{color:var(--ink-faint); font-weight:400;}
 
 tfoot td{
-  padding:13px 20px; font-weight:700; background:var(--surface-alt);
+  font-weight:700; background:var(--surface-alt);
   border-top:2px solid var(--line-strong);
 }
 tfoot .total-label{
@@ -285,7 +288,8 @@ tfoot .total-label{
   .brand-text span{display:none;}
   .filter-row{gap:12px;}
   .field, .ms-trigger, .field select, .field input{min-width:0; width:100%;}
-  thead th, tbody td, tfoot td{padding:10px 12px;}
+  thead th{padding:9px 10px;}
+  tbody td, tfoot td{padding:9px 10px;}
   .table-wrap{max-height:65vh;}
   .site-cards{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; width:100%;}
   .site-card{min-width:0;}
@@ -398,28 +402,7 @@ tfoot .total-label{
     </div>
     <div class="table-wrap" id="tableWrap" style="display:none;">
       <table id="reportTable">
-        <colgroup>
-          <col style="width:190px">
-          <col style="width:90px">
-          <col style="width:110px">
-          <col style="width:90px">
-          <col style="width:110px">
-          <col style="width:90px">
-          <col style="width:140px">
-          <col style="width:150px">
-        </colgroup>
-        <thead>
-          <tr id="tableHeadRow">
-            <th>Party name</th>
-            <th>Site</th>
-            <th class="num">Target trips</th>
-            <th class="num">Trips</th>
-            <th class="num">Target %</th>
-            <th class="num">Trucks</th>
-            <th class="num">Loading qty</th>
-            <th class="num">Avg trips/truck</th>
-          </tr>
-        </thead>
+        <thead id="tableHead"></thead>
         <tbody id="tableBody"></tbody>
         <tfoot id="tableFoot"></tfoot>
       </table>
@@ -449,10 +432,10 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyQ2LHsQIIoa5H-
 // compute Target Trips = days in range × TARGET_TRIPS_PER_TRUCK_PER_DAY × trucks.
 const TARGET_TRIPS_PER_TRUCK_PER_DAY = 4;
 
-// Known site name → short code shown on the summary cards and in the
-// table's Site column / PDF. Any site not listed here falls back to
-// auto-generated initials, so a new site added later still gets a
-// reasonable short code automatically.
+// Known site name → short code shown on the summary cards and as each
+// site's column-group header in the table / PDF. Any site not listed
+// here falls back to auto-generated initials, so a new site added
+// later still gets a reasonable short code automatically.
 const SITE_ABBREVIATIONS = {
   'G. BEGUNIA OC PATCH': 'GBOCP',
   'GOURANGDIH EXPANSION OCP': 'GEOCP'
@@ -496,6 +479,7 @@ function abbreviateSite(name){
 let allTrips = [];
 let uniqueSites = [];
 let uniqueParties = []; // scoped to the currently selected site(s)
+let lastReportModel = null; // the pivoted table data behind the current render, reused by the PDF export
 const filterState = {
   from: null, to: null, mode: null,
   sites: new Set(),            // empty = nothing picked yet; 'ALL' = every site
@@ -787,9 +771,9 @@ function computeFilterOptions(){
    SITE SUMMARY CARDS
    ================================================================= */
 /**
- * One card per SELECTED site (not every site — that's the point of
- * this change), showing Trip Count and Quantity, always covering every
- * party at that site regardless of the Party filter.
+ * One card per SELECTED site (not every site), showing Trip Count and
+ * Quantity, always covering every party at that site regardless of the
+ * Party filter.
  *
  * Cards require a full date range (From + To), a Mode, AND at least
  * one Site to be selected. Until then, no cards render at all.
@@ -861,6 +845,7 @@ function applyFilters(){
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
+    lastReportModel = null;
     return;
   }
 
@@ -884,6 +869,7 @@ function applyFilters(){
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
+    lastReportModel = null;
     return;
   }
 
@@ -899,112 +885,172 @@ function applyFilters(){
 }
 
 /**
- * Groups the filtered trip rows by SITE + PARTY (since multiple sites
- * can now be selected at once, each row needs to say which site it
- * belongs to) and renders one summary row per site/party pair:
- * Target Trips, Trip count, Target Completion %, unique truck count,
- * the mode-relevant quantity sum, and average trips per truck per day.
- * A Total row is added to the table's <tfoot>, which also carries
- * straight through into the PDF export since that reads directly from
- * this same table.
+ * Builds the pivoted report model behind the table and the PDF export:
+ * one row per PARTY, with a repeating group of four columns
+ * (Trucks / Target trips / Trips / Qty) for each site currently in
+ * scope, followed by aggregate Total Target trips / Total trips /
+ * Total qty / Target % columns.
  *
- * Target Trips = days in the selected date range × 4 × unique trucks
- * for that site/party group.
- * Target % = (Target Trips ÷ Trips) × 100.
+ * Target trips (per site, per party) = days in range × 4 × unique
+ * trucks that party ran at that site.
+ * Target % (per party, and for the grand total) =
+ * (Total trips ÷ Total target trips) × 100, where the totals are
+ * summed across every site column for that row.
  *
- * The Loading/Unloading quantity column is mode-driven — since the date
- * filter itself already requires exactly one mode to be selected, the
- * column just relabels and recolors itself rather than showing both
- * pairs at once.
+ * "Sites in scope" is derived from the filtered rows themselves (not
+ * from the Site filter directly), so the column set always matches
+ * whatever the filters actually returned data for, sorted alphabetically
+ * so every party row lines up under the same site columns.
  */
-function renderTable(rows){
+function buildReportModel(rows){
   const mode = filterState.mode;
+  const qtyField = mode === 'loading' ? 'loadingQty' : 'unloadingQty';
   const qtyLabel = mode === 'loading' ? 'Loading qty' : 'Unloading qty';
   const qtyColorClass = mode === 'loading' ? 'loading-col' : 'unloading-col';
-  const qtyField = mode === 'loading' ? 'loadingQty' : 'unloadingQty';
-
-  document.getElementById('tableHeadRow').innerHTML = `
-    <th>Party name</th>
-    <th>Site</th>
-    <th class="num">Target trips</th>
-    <th class="num">Trips</th>
-    <th class="num">Target %</th>
-    <th class="num">Trucks</th>
-    <th class="num">${qtyLabel}</th>
-    <th class="num">Avg trips/truck</th>
-  `;
 
   const fromD = filterState.from, toD = filterState.to;
   const fromMid = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate());
   const toMid = new Date(toD.getFullYear(), toD.getMonth(), toD.getDate());
   const days = Math.max(1, Math.round((toMid - fromMid) / 86400000) + 1);
 
-  const groupMap = new Map();
+  const sitesInScope = [...new Set(rows.map(r => r.source || '(No site)'))].sort();
+
+  // party -> site -> { trips, qty, trucks:Set }
+  const partyMap = new Map();
   rows.forEach(r => {
-    const site = r.source || '(No site)';
     const party = r.party || '(No party)';
-    const key = site + '\u241F' + party;
-    if (!groupMap.has(key)) groupMap.set(key, { site, party, trips: 0, loadSum: 0, unloadSum: 0, trucks: new Set() });
-    const g = groupMap.get(key);
-    g.trips += 1;
-    g.loadSum += (r.loadingQty || 0);
-    g.unloadSum += (r.unloadingQty || 0);
-    if (r.truckNo) g.trucks.add(r.truckNo);
+    const site = r.source || '(No site)';
+    if (!partyMap.has(party)) partyMap.set(party, new Map());
+    const siteMap = partyMap.get(party);
+    if (!siteMap.has(site)) siteMap.set(site, { trips: 0, qty: 0, trucks: new Set() });
+    const cell = siteMap.get(site);
+    cell.trips += 1;
+    cell.qty += (r[qtyField] || 0);
+    if (r.truckNo) cell.trucks.add(r.truckNo);
   });
 
-  const groups = [...groupMap.values()].sort((a, b) =>
-    a.site.localeCompare(b.site) || a.party.localeCompare(b.party)
-  );
+  const partyRows = [...partyMap.keys()].sort((a, b) => a.localeCompare(b)).map(party => {
+    const siteMap = partyMap.get(party);
+    const siteCells = sitesInScope.map(site => {
+      const c = siteMap.get(site) || { trips: 0, qty: 0, trucks: new Set() };
+      const trucks = c.trucks.size;
+      const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * trucks;
+      return { site, trucks, targetTrips, trips: c.trips, qty: c.qty };
+    });
+    const totalTargetTrips = siteCells.reduce((s, c) => s + c.targetTrips, 0);
+    const totalTrips = siteCells.reduce((s, c) => s + c.trips, 0);
+    const totalQty = siteCells.reduce((s, c) => s + c.qty, 0);
+    const targetPct = totalTargetTrips ? (totalTrips / totalTargetTrips) * 100 : 0;
+    return { party, siteCells, totalTargetTrips, totalTrips, totalQty, targetPct };
+  });
 
+  // Grand total row, computed per site directly from the filtered rows
+  // (distinct trucks across ALL parties at that site — not a sum of
+  // each party's own truck count, since the same truck can serve more
+  // than one party).
+  const totalSiteCells = sitesInScope.map(site => {
+    const truckSet = new Set();
+    let trips = 0, qty = 0;
+    rows.forEach(r => {
+      if ((r.source || '(No site)') !== site) return;
+      trips += 1;
+      qty += (r[qtyField] || 0);
+      if (r.truckNo) truckSet.add(r.truckNo);
+    });
+    const trucks = truckSet.size;
+    const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * trucks;
+    return { site, trucks, targetTrips, trips, qty };
+  });
+  const grandTargetTrips = totalSiteCells.reduce((s, c) => s + c.targetTrips, 0);
+  const grandTrips = rows.length;
+  const grandQty = rows.reduce((s, r) => s + (r[qtyField] || 0), 0);
+  const grandTargetPct = grandTargetTrips ? (grandTrips / grandTargetTrips) * 100 : 0;
+
+  return {
+    mode, qtyLabel, qtyColorClass, sitesInScope, partyRows,
+    totals: {
+      siteCells: totalSiteCells,
+      targetTrips: grandTargetTrips,
+      trips: grandTrips,
+      qty: grandQty,
+      targetPct: grandTargetPct
+    }
+  };
+}
+
+function renderTable(rows){
+  const model = buildReportModel(rows);
+  lastReportModel = model;
+  const { qtyLabel, qtyColorClass, sitesInScope } = model;
+
+  /* ---- HEADER: Party name | [Site group ×4 cols] repeated | Totals ×4 ---- */
+  const thead = document.getElementById('tableHead');
+  thead.innerHTML = '';
+
+  const headRow1 = document.createElement('tr');
+  headRow1.innerHTML = `
+    <th rowspan="3">Party name</th>
+    ${sitesInScope.length ? `<th colspan="${sitesInScope.length * 4}" class="group-start center">Sites</th>` : ''}
+    <th rowspan="3" class="num group-start">Total target trips</th>
+    <th rowspan="3" class="num">Total trips</th>
+    <th rowspan="3" class="num">Total ${qtyLabel}</th>
+    <th rowspan="3" class="num">Target %</th>
+  `;
+  thead.appendChild(headRow1);
+
+  const headRow2 = document.createElement('tr');
+  headRow2.innerHTML = sitesInScope.map(site =>
+    `<th colspan="4" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>`
+  ).join('');
+  thead.appendChild(headRow2);
+
+  const headRow3 = document.createElement('tr');
+  headRow3.innerHTML = sitesInScope.map(() => `
+    <th class="num group-start">Fleet</th>
+    <th class="num">Target trips</th>
+    <th class="num">Trips</th>
+    <th class="num">${qtyLabel}</th>
+  `).join('');
+  thead.appendChild(headRow3);
+
+  /* ---- BODY: one row per party ---- */
   const body = document.getElementById('tableBody');
   body.innerHTML = '';
-  let totalTargetTrips = 0;
-
-  groups.forEach(g => {
-    const hue = hashHue(g.party);
-    const truckCount = g.trucks.size;
-    const qtySum = mode === 'loading' ? g.loadSum : g.unloadSum;
-    const avgTripsPerTruck = truckCount ? g.trips / (days * truckCount) : 0;
-    const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * truckCount;
-    const targetPct = targetTrips ? (g.trips / targetTrips) * 100 : 0;
-    totalTargetTrips += targetTrips;
-
+  model.partyRows.forEach(pr => {
+    const hue = hashHue(pr.party);
+    const siteCellsHtml = pr.siteCells.map(c => `
+      <td class="qty group-start">${c.trucks}</td>
+      <td class="qty">${c.targetTrips}</td>
+      <td class="qty">${c.trips}</td>
+      <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
+    `).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(g.party)}</td>
-      <td class="site-cell" title="${escapeHtml(g.site)}">${escapeHtml(abbreviateSite(g.site))}</td>
-      <td class="qty">${targetTrips}</td>
-      <td class="qty">${g.trips}</td>
-      <td class="qty">${targetPct.toFixed(1)}<span class="unit">%</span></td>
-      <td class="qty">${truckCount}</td>
-      <td class="qty ${qtyColorClass}">${qtySum.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty">${avgTripsPerTruck.toFixed(2)}</td>
+      <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(pr.party)}</td>
+      ${siteCellsHtml}
+      <td class="qty group-start">${pr.totalTargetTrips}</td>
+      <td class="qty">${pr.totalTrips}</td>
+      <td class="qty ${qtyColorClass}">${pr.totalQty.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty">${pr.targetPct.toFixed(1)}<span class="unit">%</span></td>
     `;
     body.appendChild(tr);
   });
 
-  // Total row: Total Trips, Target Trips, Target %, Total Trucks
-  // (distinct across ALL rows, not a sum of each group's unique-truck
-  // count), and Total Loading/Unloading qty. Avg trips/truck isn't
-  // meaningfully summable, so it's left as a dash to keep the row's
-  // cells aligned.
-  const totalTrips = rows.length;
-  const totalTruckSet = new Set();
-  rows.forEach(r => { if (r.truckNo) totalTruckSet.add(r.truckNo); });
-  const totalTrucks = totalTruckSet.size;
-  const totalQty = rows.reduce((s, r) => s + (r[qtyField] || 0), 0);
-  const totalTargetPct = totalTargetTrips ? (totalTrips / totalTargetTrips) * 100 : 0;
-
+  /* ---- TOTAL ROW ---- */
+  const totalSiteCellsHtml = model.totals.siteCells.map(c => `
+    <td class="qty group-start">${c.trucks}</td>
+    <td class="qty">${c.targetTrips}</td>
+    <td class="qty">${c.trips}</td>
+    <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
+  `).join('');
   document.getElementById('tableFoot').innerHTML = `
     <tr>
       <td class="party-cell total-label">TOTAL</td>
-      <td class="qty blank">—</td>
-      <td class="qty">${totalTargetTrips}</td>
-      <td class="qty">${totalTrips}</td>
-      <td class="qty">${totalTargetPct.toFixed(1)}<span class="unit">%</span></td>
-      <td class="qty">${totalTrucks}</td>
-      <td class="qty ${qtyColorClass}">${totalQty.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty blank">—</td>
+      ${totalSiteCellsHtml}
+      <td class="qty group-start">${model.totals.targetTrips}</td>
+      <td class="qty">${model.totals.trips}</td>
+      <td class="qty ${qtyColorClass}">${model.totals.qty.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty">${model.totals.targetPct.toFixed(1)}<span class="unit">%</span></td>
     </tr>
   `;
 }
@@ -1027,33 +1073,61 @@ function formatDMY(d){
    PDF EXPORT
    ================================================================= */
 /**
- * Reads the on-screen table into head/body/foot arrays, skipping the
- * given zero-based column indexes. Used instead of autoTable's `html`
- * mode so specific columns (Target %, Avg trips/truck) can be left out
- * of the PDF without touching what's shown on screen.
+ * Builds jsPDF-autoTable head/body/foot arrays directly from the same
+ * report model the on-screen table renders from — so the PDF always
+ * matches the interface exactly, column for column, including the
+ * three-level Site grouping in the header.
  */
-function extractTableData(excludeCols){
-  const keep = (i) => !excludeCols.includes(i);
+function buildPdfHeadBodyFoot(model){
+  const { sitesInScope, qtyLabel, partyRows, totals } = model;
 
-  const headCells = [...document.getElementById('tableHeadRow').children];
-  const head = [headCells.filter((_, i) => keep(i)).map(th => th.textContent.trim())];
-
-  const bodyRows = [...document.getElementById('tableBody').rows];
-  const body = bodyRows.map(tr =>
-    [...tr.children].filter((_, i) => keep(i)).map(td => td.textContent.trim())
+  const headRow1 = [{ content: 'Party name', rowSpan: 3, styles: { valign: 'middle' } }];
+  if (sitesInScope.length){
+    headRow1.push({ content: 'Sites', colSpan: sitesInScope.length * 4, styles: { halign: 'center' } });
+  }
+  headRow1.push(
+    { content: 'Total target trips', rowSpan: 3, styles: { valign: 'middle', halign: 'right' } },
+    { content: 'Total trips', rowSpan: 3, styles: { valign: 'middle', halign: 'right' } },
+    { content: 'Total ' + qtyLabel, rowSpan: 3, styles: { valign: 'middle', halign: 'right' } },
+    { content: 'Target %', rowSpan: 3, styles: { valign: 'middle', halign: 'right' } }
   );
 
-  const footRow = document.getElementById('tableFoot').rows[0];
-  const foot = footRow
-    ? [[...footRow.children].filter((_, i) => keep(i)).map(td => td.textContent.trim())]
-    : [];
+  const headRow2 = sitesInScope.map(site => ({
+    content: abbreviateSite(site), colSpan: 4, styles: { halign: 'center' }
+  }));
 
-  return { head, body, foot };
+  const headRow3 = [];
+  sitesInScope.forEach(() => {
+    headRow3.push(
+      { content: 'Fleet', styles: { halign: 'right' } },
+      { content: 'Target trips', styles: { halign: 'right' } },
+      { content: 'Trips', styles: { halign: 'right' } },
+      { content: qtyLabel, styles: { halign: 'right' } }
+    );
+  });
+
+  const head = [headRow1, headRow2, headRow3];
+
+  const body = partyRows.map(pr => {
+    const row = [pr.party];
+    pr.siteCells.forEach(c => {
+      row.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2));
+    });
+    row.push(String(pr.totalTargetTrips), String(pr.totalTrips), pr.totalQty.toFixed(2), pr.targetPct.toFixed(1) + '%');
+    return row;
+  });
+
+  const footRow = ['TOTAL'];
+  totals.siteCells.forEach(c => {
+    footRow.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2));
+  });
+  footRow.push(String(totals.targetTrips), String(totals.trips), totals.qty.toFixed(2), totals.targetPct.toFixed(1) + '%');
+
+  return { head, body, foot: [footRow] };
 }
 
 document.getElementById('pdfBtn').addEventListener('click', () => {
-  const tableWrap = document.getElementById('tableWrap');
-  if (tableWrap.style.display === 'none'){
+  if (!lastReportModel){
     showToast('Apply filters to bring up the table before exporting.', 'error');
     return;
   }
@@ -1098,30 +1172,18 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   doc.setFontSize(10);
   doc.text(`Mode: ${modeLabel}`, 40, 102);
 
-  // Every column shown in the interface table is included in the PDF,
-  // in the same order: 0 Party, 1 Site, 2 Target trips, 3 Trips,
-  // 4 Target %, 5 Trucks, 6 Qty, 7 Avg trips/truck.
-  const { head, body, foot } = extractTableData([]);
+  const { head, body, foot } = buildPdfHeadBodyFoot(lastReportModel);
 
   doc.autoTable({
     head, body, foot,
     startY: 116,
-    tableWidth: 'wrap',
+    theme: 'grid',
     showFoot: 'lastPage', // Total row only at the end of the last page, not repeated per page
-    styles: { fontSize: 9, cellPadding: 6, textColor: [16, 24, 32] },
-    headStyles: { fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold' },
+    styles: { fontSize: 7.5, cellPadding: 4, textColor: [16, 24, 32] },
+    headStyles: { fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold', fontSize: 7.5 },
     alternateRowStyles: { fillColor: [247, 249, 248] },
     footStyles: { fillColor: [222, 229, 227], textColor: [16, 24, 32], fontStyle: 'bold' },
-    columnStyles: {
-      0: { cellWidth: 130 }, // Party name
-      1: { cellWidth: 50 },  // Site
-      2: { cellWidth: 55 },  // Target trips
-      3: { cellWidth: 40 },  // Trips
-      4: { cellWidth: 50 },  // Target %
-      5: { cellWidth: 40 },  // Trucks
-      6: { cellWidth: 65 },  // Loading/Unloading qty
-      7: { cellWidth: 65 }   // Avg trips/truck
-    }
+    columnStyles: { 0: { cellWidth: 110 } } // Party name a bit wider; remaining columns auto-fit the page
   });
 
   const fileDate = new Date().toISOString().slice(0, 10);
