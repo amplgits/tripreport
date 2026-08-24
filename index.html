@@ -450,6 +450,10 @@ function abbreviateSite(name){
   return initials || name;
 }
 
+function normalizeTruckNo(raw){
+  return String(raw || '').toUpperCase().replace(/[\s\-.\/]+/g, '');
+}
+
 /* =================================================================
    APP MANIFEST (mobile "Add to Home Screen" / standalone launch)
    ================================================================= */
@@ -923,8 +927,6 @@ function buildReportModel(rows){
   if (filterState.sites.has('ALL')){
     sitesInScope = [...dataSites].sort();
   } else {
-    // filterState.sites is a Set, and Sets iterate in insertion order in
-    // JS — so this is exactly the order the user checked the boxes in.
     const selectedOrder = [...filterState.sites].filter(s => dataSites.has(s));
     const remaining = [...dataSites].filter(s => !selectedOrder.includes(s)).sort();
     sitesInScope = selectedOrder.concat(remaining);
@@ -941,51 +943,58 @@ function buildReportModel(rows){
     const cell = siteMap.get(site);
     cell.trips += 1;
     cell.qty += (r[qtyField] || 0);
-    if (r.truckNo) cell.trucks.add(r.truckNo);
+    if (r.truckNo) cell.trucks.add(normalizeTruckNo(r.truckNo));
   });
 
   const partyRows = [...partyMap.keys()].sort((a, b) => a.localeCompare(b)).map(party => {
     const siteMap = partyMap.get(party);
     const siteCells = sitesInScope.map(site => {
       const c = siteMap.get(site) || { trips: 0, qty: 0, trucks: new Set() };
-      const trucks = c.trucks.size;
-      const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * trucks;
-      return { site, trucks, targetTrips, trips: c.trips, qty: c.qty };
+      return { site, trips: c.trips, qty: c.qty };
     });
-    const firstSiteTargetTrips = siteCells.length ? siteCells[0].targetTrips : 0;
+
+    // Fleet = distinct trucks this party ran across EVERY site currently
+    // in scope, not just the first site.
+    const fleetTrucks = new Set();
+    sitesInScope.forEach(site => {
+      const c = siteMap.get(site);
+      if (c) c.trucks.forEach(t => fleetTrucks.add(t));
+    });
+    const fleet = fleetTrucks.size;
+    const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * fleet;
+
     const totalTrips = siteCells.reduce((s, c) => s + c.trips, 0);
     const totalQty = siteCells.reduce((s, c) => s + c.qty, 0);
-    const targetPct = firstSiteTargetTrips ? (totalTrips / firstSiteTargetTrips) * 100 : 0;
-    return { party, siteCells, firstSiteTargetTrips, totalTrips, totalQty, targetPct };
+    const targetPct = targetTrips ? (totalTrips / targetTrips) * 100 : 0;
+    return { party, siteCells, fleet, targetTrips, totalTrips, totalQty, targetPct };
   });
 
-  // Grand total row, computed per site directly from the filtered rows
-  // (distinct trucks across ALL parties at that site — not a sum of
-  // each party's own truck count, since the same truck can serve more
-  // than one party). Target % again is driven only by the first site's
-  // target trips figure.
+  // Grand total row: Fleet = distinct trucks across ALL parties and ALL
+  // sites in scope (a truck serving multiple parties/sites counted once).
   const totalSiteCells = sitesInScope.map(site => {
-    const truckSet = new Set();
     let trips = 0, qty = 0;
     rows.forEach(r => {
       if ((r.source || '(No site)') !== site) return;
       trips += 1;
       qty += (r[qtyField] || 0);
-      if (r.truckNo) truckSet.add(r.truckNo);
     });
-    const trucks = truckSet.size;
-    const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * trucks;
-    return { site, trucks, targetTrips, trips, qty };
+    return { site, trips, qty };
   });
-  const grandFirstSiteTargetTrips = totalSiteCells.length ? totalSiteCells[0].targetTrips : 0;
+
+  const grandFleetTrucks = new Set();
+  rows.forEach(r => { if (r.truckNo) grandFleetTrucks.add(normalizeTruckNo(r.truckNo)); });
+  const grandFleet = grandFleetTrucks.size;
+  const grandTargetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * grandFleet;
   const grandTrips = rows.length;
   const grandQty = rows.reduce((s, r) => s + (r[qtyField] || 0), 0);
-  const grandTargetPct = grandFirstSiteTargetTrips ? (grandTrips / grandFirstSiteTargetTrips) * 100 : 0;
+  const grandTargetPct = grandTargetTrips ? (grandTrips / grandTargetTrips) * 100 : 0;
 
   return {
     mode, qtyLabel, qtyColorClass, sitesInScope, partyRows,
     totals: {
       siteCells: totalSiteCells,
+      fleet: grandFleet,
+      targetTrips: grandTargetTrips,
       trips: grandTrips,
       qty: grandQty,
       targetPct: grandTargetPct
@@ -1007,11 +1016,9 @@ function renderTable(rows){
   const headRow1 = document.createElement('tr');
   headRow1.innerHTML = `
     <th rowspan="2">Party name</th>
-    ${sitesInScope.map((site, idx) => idx === 0 ? `
-      <th rowspan="2" class="num group-start">Fleet</th>
-      <th rowspan="2" class="num">Target trips</th>
-      <th colspan="2" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>
-    ` : `
+    <th rowspan="2" class="num group-start">Fleet</th>
+    <th rowspan="2" class="num">Target trips</th>
+    ${sitesInScope.map(site => `
       <th colspan="2" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>
     `).join('')}
     <th rowspan="2" class="num group-start">Total trips</th>
@@ -1032,18 +1039,15 @@ function renderTable(rows){
   body.innerHTML = '';
   model.partyRows.forEach(pr => {
     const hue = hashHue(pr.party);
-    const siteCellsHtml = pr.siteCells.map((c, idx) => idx === 0 ? `
-      <td class="qty group-start">${c.trucks}</td>
-      <td class="qty">${c.targetTrips}</td>
-      <td class="qty group-start">${c.trips}</td>
-      <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
-    ` : `
+    const siteCellsHtml = pr.siteCells.map(c => `
       <td class="qty group-start">${c.trips}</td>
       <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
     `).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(pr.party)}</td>
+      <td class="qty group-start">${pr.fleet}</td>
+      <td class="qty">${pr.targetTrips}</td>
       ${siteCellsHtml}
       <td class="qty group-start">${pr.totalTrips}</td>
       <td class="qty ${qtyColorClass}">${pr.totalQty.toFixed(2)}<span class="unit">MT</span></td>
@@ -1053,18 +1057,15 @@ function renderTable(rows){
   });
 
   /* ---- TOTAL ROW ---- */
-  const totalSiteCellsHtml = model.totals.siteCells.map((c, idx) => idx === 0 ? `
-    <td class="qty group-start">${c.trucks}</td>
-    <td class="qty">${c.targetTrips}</td>
-    <td class="qty group-start">${c.trips}</td>
-    <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
-  ` : `
+  const totalSiteCellsHtml = model.totals.siteCells.map(c => `
     <td class="qty group-start">${c.trips}</td>
     <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
   `).join('');
   document.getElementById('tableFoot').innerHTML = `
     <tr>
       <td class="party-cell total-label">TOTAL</td>
+      <td class="qty group-start">${model.totals.fleet}</td>
+      <td class="qty">${model.totals.targetTrips}</td>
       ${totalSiteCellsHtml}
       <td class="qty group-start">${model.totals.trips}</td>
       <td class="qty ${qtyColorClass}">${model.totals.qty.toFixed(2)}<span class="unit">MT</span></td>
@@ -1102,17 +1103,13 @@ function formatDMY(d){
 function buildPdfHeadBodyFoot(model){
   const { sitesInScope, qtyLabel, partyRows, totals } = model;
 
-  const headRow1 = [{ content: 'Party name', rowSpan: 2, styles: { valign: 'middle' } }];
-  sitesInScope.forEach((site, idx) => {
-    if (idx === 0){
-      headRow1.push(
-        { content: 'Fleet', rowSpan: 2, styles: { valign: 'middle' } },
-        { content: 'Target trips', rowSpan: 2, styles: { valign: 'middle' } },
-        { content: abbreviateSite(site), colSpan: 2, styles: { halign: 'center' } }
-      );
-    } else {
-      headRow1.push({ content: abbreviateSite(site), colSpan: 2, styles: { halign: 'center' } });
-    }
+  const headRow1 = [
+    { content: 'Party name', rowSpan: 2, styles: { valign: 'middle' } },
+    { content: 'Fleet', rowSpan: 2, styles: { valign: 'middle' } },
+    { content: 'Target trips', rowSpan: 2, styles: { valign: 'middle' } }
+  ];
+  sitesInScope.forEach(site => {
+    headRow1.push({ content: abbreviateSite(site), colSpan: 2, styles: { halign: 'center' } });
   });
   headRow1.push(
     { content: 'Total trips', rowSpan: 2, styles: { valign: 'middle' } },
@@ -1121,60 +1118,28 @@ function buildPdfHeadBodyFoot(model){
   );
 
   const headRow2 = [];
-  sitesInScope.forEach(() => {
-    headRow2.push(
-      { content: 'Trips' },
-      { content: qtyLabel }
-    );
-  });
+  sitesInScope.forEach(() => headRow2.push({ content: 'Trips' }, { content: qtyLabel }));
 
   const head = [headRow1, headRow2];
 
   const body = partyRows.map(pr => {
-    const row = [pr.party];
-    pr.siteCells.forEach((c, idx) => {
-      if (idx === 0){
-        row.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2) + ' MT');
-      } else {
-        row.push(String(c.trips), c.qty.toFixed(2) + ' MT');
-      }
-    });
+    const row = [pr.party, String(pr.fleet), String(pr.targetTrips)];
+    pr.siteCells.forEach(c => row.push(String(c.trips), c.qty.toFixed(2) + ' MT'));
     row.push(String(pr.totalTrips), pr.totalQty.toFixed(2) + ' MT', pr.targetPct.toFixed(1) + '%');
     return row;
   });
 
-  const footRow = ['TOTAL'];
-  totals.siteCells.forEach((c, idx) => {
-    if (idx === 0){
-      footRow.push(String(c.trucks), String(c.targetTrips), String(c.trips), c.qty.toFixed(2) + ' MT');
-    } else {
-      footRow.push(String(c.trips), c.qty.toFixed(2) + ' MT');
-    }
-  });
+  const footRow = ['TOTAL', String(totals.fleet), String(totals.targetTrips)];
+  totals.siteCells.forEach(c => footRow.push(String(c.trips), c.qty.toFixed(2) + ' MT'));
   footRow.push(String(totals.trips), totals.qty.toFixed(2) + ' MT', totals.targetPct.toFixed(1) + '%');
 
   return { head, body, foot: [footRow] };
 }
 
-/**
- * Which PDF columns get shrunk to 85% (i.e. -15%) of their natural width:
- * every "Target trips" column, every qty column (one per site in scope —
- * "Loading qty" or "Unloading qty" depending on mode), and the three
- * aggregate columns (Total trips / Total qty / Target %). Party name,
- * Fleet, and every "Trips" column are left exactly as they currently
- * render — untouched, per the "don't change at any circumstance" rule.
- *
- * Column order matches buildPdfHeadBodyFoot()'s body rows exactly:
- * [Party, (Fleet, Target trips, Trips, Qty) for site 1, (Trips, Qty) for
- * each further site, Total trips, Total qty, Target %].
- */
 function computePdfReduceMap(numSites){
-  const map = [false]; // Party name — unchanged
-  if (numSites > 0){
-    map.push(false, true, false, true); // Fleet, Target trips*, Trips, Qty*  (site 1)
-    for (let i = 1; i < numSites; i++){
-      map.push(false, true); // Trips, Qty*  (each further site)
-    }
+  const map = [false, false, true]; // Party name, Fleet, Target trips*
+  for (let i = 0; i < numSites; i++){
+    map.push(false, true); // Trips, Qty*  (each site)
   }
   map.push(true, true, true); // Total trips*, Total qty*, Target %*
   return map;
