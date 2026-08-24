@@ -26,6 +26,9 @@
   --loading:#0E9C8F; --loading-ink:#066358; --loading-soft:rgba(14,156,143,.12);
   --unloading:#E8830F; --unloading-ink:#9A5407; --unloading-soft:rgba(232,131,15,.13);
   --danger:#D64545;
+  --site-head-bg:#D9F0EC; --site-val-bg:#EFFAF8;
+  --other-head-bg:#FBEADC; --other-val-bg:#FFF8F0;
+  --party-head-bg:#E4E9FA; --party-val-bg:#F4F6FD;
   --shadow:0 1px 2px rgba(16,24,32,.04), 0 8px 24px -12px rgba(16,24,32,.14);
   --shadow-lg:0 20px 48px -16px rgba(16,24,32,.28);
   --radius:14px; --radius-sm:9px;
@@ -41,6 +44,9 @@
   --loading:#28D6C4; --loading-ink:#8AF0E4; --loading-soft:rgba(40,214,196,.14);
   --unloading:#FFA83D; --unloading-ink:#FFC98A; --unloading-soft:rgba(255,168,61,.15);
   --danger:#F17070;
+  --site-head-bg:rgba(40,214,196,.16); --site-val-bg:rgba(40,214,196,.07);
+  --other-head-bg:rgba(255,168,61,.16); --other-val-bg:rgba(255,168,61,.07);
+  --party-head-bg:rgba(122,148,255,.18); --party-val-bg:rgba(122,148,255,.08);
   --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
   --shadow-lg:0 24px 56px -18px rgba(0,0,0,.65);
 }
@@ -220,15 +226,21 @@ table{border-collapse:collapse; font-size:13.5px; table-layout:auto;}
 thead{position:sticky; top:0; z-index:5;}
 thead th{
   text-align:left; padding:11px 14px; font-size:10px; font-weight:700; letter-spacing:.8px;
-  text-transform:uppercase; color:var(--ink-faint); background:var(--surface-alt);
+  text-transform:uppercase; color:var(--ink-faint); background:var(--other-head-bg);
   border:1px solid var(--line); white-space:normal; word-break:break-word; line-height:1.35;
   vertical-align:middle;
 }
 thead th.num{text-align:right;}
 thead th.center{text-align:center;}
 thead th.site-group-header{
-  background:var(--surface-hover); color:var(--ink-soft); font-size:11px; letter-spacing:.5px;
+  background:var(--site-head-bg); color:var(--ink-soft); font-size:11px; letter-spacing:.5px;
   text-align:center;
+}
+thead tr:nth-child(2) th{
+  background:var(--site-head-bg);
+}
+thead tr:first-child th:first-child{
+  background:var(--party-head-bg);
 }
 .group-start{border-left:2px solid var(--line-strong) !important;}
 tbody td, tfoot td{padding:11px 14px; border:1px solid var(--line); vertical-align:middle; white-space:nowrap;}
@@ -236,8 +248,10 @@ tbody tr:hover td{background:var(--surface-alt);}
 .party-cell{
   font-weight:600; font-size:13.5px; border-left:3px solid transparent; position:relative;
   white-space:normal; overflow-wrap:break-word; word-break:break-word; line-height:1.4;
+  background:var(--party-val-bg);
 }
-.qty{font-family:var(--font-mono); font-weight:600; text-align:right; white-space:nowrap;}
+.qty{font-family:var(--font-mono); font-weight:600; text-align:right; white-space:nowrap; background:var(--other-val-bg);}
+.qty.site-val{background:var(--site-val-bg);}
 .qty.loading-col{color:var(--loading-ink);}
 .qty.unloading-col{color:var(--unloading-ink);}
 .qty .unit{font-size:10px; color:var(--ink-faint); font-weight:500; margin-left:3px;}
@@ -1040,8 +1054,8 @@ function renderTable(rows){
   model.partyRows.forEach(pr => {
     const hue = hashHue(pr.party);
     const siteCellsHtml = pr.siteCells.map(c => `
-      <td class="qty group-start">${c.trips}</td>
-      <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
+      <td class="qty site-val group-start">${c.trips}</td>
+      <td class="qty site-val ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
     `).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -1058,8 +1072,8 @@ function renderTable(rows){
 
   /* ---- TOTAL ROW ---- */
   const totalSiteCellsHtml = model.totals.siteCells.map(c => `
-    <td class="qty group-start">${c.trips}</td>
-    <td class="qty ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
+    <td class="qty site-val group-start">${c.trips}</td>
+    <td class="qty site-val ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
   `).join('');
   document.getElementById('tableFoot').innerHTML = `
     <tr>
@@ -1145,6 +1159,23 @@ function computePdfReduceMap(numSites){
   return map;
 }
 
+function computePdfIsSiteColumn(numSites){
+  const map = [false, false, false]; // Party name, Fleet, Target trips
+  for (let i = 0; i < numSites; i++){
+    map.push(true, true); // Trips, Qty — site columns
+  }
+  map.push(false, false, false); // Total trips, Total qty, Target %
+  return map;
+}
+// Mirrors --site-head-bg / --site-val-bg / --other-head-bg / --other-val-bg
+const PDF_SITE_HEAD_BG = [217, 240, 236];
+const PDF_SITE_VAL_BG = [239, 250, 248];
+const PDF_OTHER_HEAD_BG = [251, 234, 220];
+const PDF_OTHER_VAL_BG = [255, 248, 240];
+// Mirrors --party-head-bg / --party-val-bg
+const PDF_PARTY_HEAD_BG = [228, 233, 250];
+const PDF_PARTY_VAL_BG = [244, 246, 253];
+
 document.getElementById('pdfBtn').addEventListener('click', () => {
   if (!lastReportModel){
     showToast('Apply filters to bring up the table before exporting.', 'error');
@@ -1159,6 +1190,7 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   const { head, body, foot } = buildPdfHeadBodyFoot(lastReportModel);
   const numCols = body[0] ? body[0].length : 4;
   const reduceMap = computePdfReduceMap(lastReportModel.sitesInScope.length);
+  const isSiteCol = computePdfIsSiteColumn(lastReportModel.sitesInScope.length);
 
   const sharedTableOptions = {
     theme: 'grid',
@@ -1181,6 +1213,13 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
       // header labels keep their own alignment (center, as set above).
       if (data.column.index !== 0 && data.row.section !== 'head'){
         data.cell.styles.halign = 'right';
+      }
+      const isPartyCol = data.column.index === 0;
+      const siteCol = isSiteCol[data.column.index];
+      if (data.row.section === 'head'){
+        data.cell.styles.fillColor = isPartyCol ? PDF_PARTY_HEAD_BG : (siteCol ? PDF_SITE_HEAD_BG : PDF_OTHER_HEAD_BG);
+      } else {
+        data.cell.styles.fillColor = isPartyCol ? PDF_PARTY_VAL_BG : (siteCol ? PDF_SITE_VAL_BG : PDF_OTHER_VAL_BG);
       }
     }
   };
@@ -1212,7 +1251,7 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
      blank/white rather than being redistributed to other columns. ---- */
   const columnStyles = {};
   for (let i = 0; i < numCols; i++){
-    columnStyles[i] = { cellWidth: reduceMap[i] ? naturalWidths[i] * 0.85 : naturalWidths[i] };
+    columnStyles[i] = { cellWidth: reduceMap[i] ? naturalWidths[i] * 0.65 : naturalWidths[i] };
   }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
