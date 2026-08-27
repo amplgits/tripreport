@@ -1138,7 +1138,7 @@ function renderTable(rows){
     `).join('')}
     <th rowspan="2" class="num group-start">Total trips</th>
     <th rowspan="2" class="num">Total ${qtyLabel}</th>
-    ${isDateView ? '' : '<th rowspan="2" class="num">Target Completion %</th>'}
+    ${isDateView ? '' : '<th rowspan="2" class="num">Trips Target Completion %</th>'}
   `;
   thead.appendChild(headRow1);
 
@@ -1234,7 +1234,7 @@ function buildPdfHeadBodyFoot(model){
     { content: 'Total trips', rowSpan: 2, styles: { valign: 'middle' } },
     { content: 'Total ' + qtyLabel, rowSpan: 2, styles: { valign: 'middle' } }
   );
-  if (!isDateView) headRow1.push({ content: 'Target Completion %', rowSpan: 2, styles: { valign: 'middle' } });
+  if (!isDateView) headRow1.push({ content: 'Trips Target Completion %', rowSpan: 2, styles: { valign: 'middle' } });
 
   const headRow2 = [];
   sitesInScope.forEach(() => headRow2.push({ content: 'Trips' }, { content: qtyLabel }));
