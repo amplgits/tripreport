@@ -198,7 +198,7 @@ button,.chip,.ms-trigger,.field select,.field input,.theme-toggle{
 .site-card-value{font-family:var(--font-mono); font-weight:700; color:var(--ink); white-space:nowrap;}
 .site-card-value .unit{font-size:9.5px; color:var(--ink-faint); font-weight:500;}
 .site-card.total-card{
-  background:var(--surface); border-color:var(--line-strong); box-shadow:var(--shadow);
+  background:lightcyan; border-color:var(--line-strong); box-shadow:var(--shadow);
 }
 .site-card.total-card .site-card-title{color:var(--loading-ink);}
 
@@ -1132,7 +1132,7 @@ function renderTable(rows){
   headRow1.innerHTML = `
     <th rowspan="2">${firstColLabel}</th>
     <th rowspan="2" class="num group-start">No. of Fleet</th>
-    <th rowspan="2" class="num">Target trips</th>
+    ${isDateView ? '' : '<th rowspan="2" class="num">Target trips</th>'}
     ${sitesInScope.map(site => `
       <th colspan="2" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>
     `).join('')}
@@ -1162,7 +1162,7 @@ function renderTable(rows){
     tr.innerHTML = `
       <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(pr.label)}</td>
       <td class="qty group-start">${pr.fleet}</td>
-      <td class="qty">${pr.targetTrips}</td>
+      ${isDateView ? '' : `<td class="qty">${pr.targetTrips}</td>`}
       ${siteCellsHtml}
       <td class="qty group-start">${pr.totalTrips}</td>
       <td class="qty ${qtyColorClass}">${pr.totalQty.toFixed(2)}<span class="unit">MT</span></td>
@@ -1179,8 +1179,8 @@ function renderTable(rows){
   document.getElementById('tableFoot').innerHTML = `
     <tr>
       <td class="party-cell total-label">TOTAL</td>
-      <td class="qty group-start">${model.totals.fleet}</td>
-      <td class="qty">${model.totals.targetTrips}</td>
+      <td class="qty group-start">${isDateView ? '' : model.totals.fleet}</td>
+      ${isDateView ? '' : `<td class="qty">${model.totals.targetTrips}</td>`}
       ${totalSiteCellsHtml}
       <td class="qty group-start">${model.totals.trips}</td>
       <td class="qty ${qtyColorClass}">${model.totals.qty.toFixed(2)}<span class="unit">MT</span></td>
@@ -1224,9 +1224,9 @@ function buildPdfHeadBodyFoot(model){
 
   const headRow1 = [
     { content: firstColLabel, rowSpan: 2, styles: { valign: 'middle' } },
-    { content: 'No. of Fleet', rowSpan: 2, styles: { valign: 'middle' } },
-    { content: 'Target trips', rowSpan: 2, styles: { valign: 'middle' } }
+    { content: 'No. of Fleet', rowSpan: 2, styles: { valign: 'middle' } }
   ];
+  if (!isDateView) headRow1.push({ content: 'Target trips', rowSpan: 2, styles: { valign: 'middle' } });
   sitesInScope.forEach(site => {
     headRow1.push({ content: abbreviateSite(site), colSpan: 2, styles: { halign: 'center' } });
   });
@@ -1242,14 +1242,16 @@ function buildPdfHeadBodyFoot(model){
   const head = [headRow1, headRow2];
 
   const body = rows.map(pr => {
-    const row = [pr.label, String(pr.fleet), String(pr.targetTrips)];
+    const row = [pr.label, String(pr.fleet)];
+    if (!isDateView) row.push(String(pr.targetTrips));
     pr.siteCells.forEach(c => row.push(String(c.trips), c.qty.toFixed(2) + ' MT'));
     row.push(String(pr.totalTrips), pr.totalQty.toFixed(2) + ' MT');
     if (!isDateView) row.push(pr.targetPct.toFixed(1) + '%');
     return row;
   });
 
-  const footRow = ['TOTAL', String(totals.fleet), String(totals.targetTrips)];
+  const footRow = ['TOTAL', isDateView ? '' : String(totals.fleet)];
+  if (!isDateView) footRow.push(String(totals.targetTrips));
   totals.siteCells.forEach(c => footRow.push(String(c.trips), c.qty.toFixed(2) + ' MT'));
   footRow.push(String(totals.trips), totals.qty.toFixed(2) + ' MT');
   if (!isDateView) footRow.push(totals.targetPct.toFixed(1) + '%');
@@ -1258,7 +1260,8 @@ function buildPdfHeadBodyFoot(model){
 }
 
 function computePdfReduceMap(numSites, includeTargetPct){
-  const map = [false, false, true]; // First col, Fleet, Target trips*
+  const map = [false, false]; // First col, Fleet
+  if (includeTargetPct) map.push(true); // Target trips*
   for (let i = 0; i < numSites; i++){
     map.push(false, true); // Trips, Qty*  (each site)
   }
@@ -1268,7 +1271,8 @@ function computePdfReduceMap(numSites, includeTargetPct){
 }
 
 function computePdfIsSiteColumn(numSites, includeTargetPct){
-  const map = [false, false, false]; // First col, Fleet, Target trips
+  const map = [false, false]; // First col, Fleet
+  if (includeTargetPct) map.push(false); // Target trips
   for (let i = 0; i < numSites; i++){
     map.push(true, true); // Trips, Qty — site columns
   }
@@ -1324,6 +1328,10 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
       if (data.column.index !== 0 && data.row.section !== 'head'){
         data.cell.styles.halign = 'right';
       }
+      // Date Wise View only: the Date column (column 0) is right-aligned too.
+      if (data.column.index === 0 && isDateView && data.row.section !== 'head'){
+        data.cell.styles.halign = 'right';
+      }
       const isPartyCol = data.column.index === 0;
       const siteCol = isSiteCol[data.column.index];
       if (data.row.section === 'head'){
@@ -1362,6 +1370,11 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   const columnStyles = {};
   for (let i = 0; i < numCols; i++){
     columnStyles[i] = { cellWidth: reduceMap[i] ? naturalWidths[i] * 0.65 : naturalWidths[i] };
+  }
+
+    // Date Wise View only: shrink the Date column (column 0) to half its natural width.
+  if (isDateView){
+    columnStyles[0].cellWidth = naturalWidths[0] * 0.5;
   }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
