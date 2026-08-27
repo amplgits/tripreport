@@ -197,6 +197,25 @@ button,.chip,.ms-trigger,.field select,.field input,.theme-toggle{
 .site-card-row + .site-card-row{margin-top:3px;}
 .site-card-value{font-family:var(--font-mono); font-weight:700; color:var(--ink); white-space:nowrap;}
 .site-card-value .unit{font-size:9.5px; color:var(--ink-faint); font-weight:500;}
+.site-card.total-card{
+  background:var(--surface); border-color:var(--line-strong); box-shadow:var(--shadow);
+}
+.site-card.total-card .site-card-title{color:var(--loading-ink);}
+
+/* ============================================================
+   PARTY WISE / DATE WISE VIEW TOGGLE
+   ============================================================ */
+.view-toggle-bar{
+  display:flex; gap:10px; padding:16px 20px; border-bottom:1px solid var(--line);
+  background:var(--surface-alt);
+}
+.view-btn{
+  font-family:var(--font-body); font-weight:600; font-size:13.5px; padding:9px 18px;
+  border-radius:999px; border:1.5px solid var(--line-strong); background:var(--surface);
+  color:var(--ink-soft); cursor:pointer; transition:all .18s; user-select:none;
+}
+.view-btn:hover{border-color:var(--ink-faint);}
+.view-btn.active{border-color:var(--loading); color:var(--loading-ink); background:var(--loading-soft);}
 
 .btn{
   font-family:var(--font-body); font-weight:600; font-size:13.5px; padding:10px 18px;
@@ -227,7 +246,7 @@ thead{position:sticky; top:0; z-index:5;}
 thead th{
   text-align:left; padding:11px 14px; font-size:10px; font-weight:700; letter-spacing:.8px;
   text-transform:uppercase; color:var(--ink-faint); background:var(--other-head-bg);
-  border:1px solid var(--line); white-space:normal; word-break:break-word; line-height:1.35;
+  border:1px solid var(--line); white-space:normal; word-break:normal; overflow-wrap:normal; line-height:1.35;
   vertical-align:middle;
 }
 thead th.num{text-align:right;}
@@ -313,6 +332,8 @@ tfoot .total-label{
   .actions-row{flex-direction:column;}
   .actions-row .spacer{display:none;}
   .ms-panel{width:100%; left:0; right:0;}
+  .view-toggle-bar{flex-direction:column;}
+  .view-btn{width:100%; padding:11px 16px; font-size:14px;}
 }
 </style>
 </head>
@@ -408,6 +429,10 @@ tfoot .total-label{
   </section>
 
   <section class="results">
+    <div class="view-toggle-bar" id="viewToggleBar" style="display:none;">
+      <button type="button" class="view-btn active" id="viewPartyBtn">Party Wise View</button>
+      <button type="button" class="view-btn" id="viewDateBtn">Date Wise View</button>
+    </div>
     <div class="empty-state" id="emptyState">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3h8l4 4v13a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>
       <h3>No trips on screen yet</h3>
@@ -497,6 +522,7 @@ let allTrips = [];
 let uniqueSites = [];
 let uniqueParties = []; // scoped to the currently selected site(s)
 let lastReportModel = null; // the pivoted table data behind the current render, reused by the PDF export
+let currentView = 'party';  // 'party' (Party Wise View) or 'date' (Date Wise View) — which pivot is on screen
 const filterState = {
   from: null, to: null, mode: null,
   sites: new Set(),            // empty = nothing picked yet; 'ALL' = every site
@@ -737,6 +763,25 @@ function updatePartyEnabledState(){
 }
 
 /* =================================================================
+   PARTY WISE / DATE WISE VIEW TOGGLE
+   Only one of the two pivoted tables is on screen at a time; switching
+   just re-runs the same filtered data through the other pivot.
+   ================================================================= */
+const viewToggleBar = document.getElementById('viewToggleBar');
+const viewPartyBtn = document.getElementById('viewPartyBtn');
+const viewDateBtn = document.getElementById('viewDateBtn');
+
+function setView(view){
+  if (currentView === view) return;
+  currentView = view;
+  viewPartyBtn.classList.toggle('active', view === 'party');
+  viewDateBtn.classList.toggle('active', view === 'date');
+  applyFilters();
+}
+viewPartyBtn.addEventListener('click', () => setView('party'));
+viewDateBtn.addEventListener('click', () => setView('date'));
+
+/* =================================================================
    CLEAR / REFRESH
    ================================================================= */
 document.getElementById('clearBtn').addEventListener('click', () => {
@@ -788,9 +833,10 @@ function computeFilterOptions(){
    SITE SUMMARY CARDS
    ================================================================= */
 /**
- * One card per SELECTED site (not every site), showing Trip Count and
- * Quantity, always covering every party at that site regardless of the
- * Party filter.
+ * One TOTAL card (summing across every currently SELECTED site) followed
+ * by one card per selected site, each showing Trip Count, Quantity, and
+ * Fleet (distinct truck count) — always covering every party at that
+ * site regardless of the Party filter.
  *
  * Cards require a full date range (From + To), a Mode, AND at least
  * one Site to be selected. Until then, no cards render at all.
@@ -815,8 +861,14 @@ function renderSiteCards(){
   const qtyField = filterState.mode === 'loading' ? 'loadingQty' : 'unloadingQty';
   const modeWord = filterState.mode === 'loading' ? 'Loading' : 'Unloading';
 
-  sitesToShow.forEach(site => {
+  // Per-site aggregates, plus a grand aggregate across every selected
+  // site (a truck seen at more than one selected site is only counted
+  // once in the grand Fleet total).
+  const grandTrucks = new Set();
+  let grandTrips = 0, grandQty = 0;
+  const perSite = sitesToShow.map(site => {
     let trips = 0, qty = 0;
+    const trucks = new Set();
 
     allTrips.forEach(t => {
       if (t.source !== site) return;
@@ -826,8 +878,27 @@ function renderSiteCards(){
       if (ms < fromMs || ms > toMs) return;
       trips += 1;
       qty += (t[qtyField] || 0);
+      if (t.truckNo) trucks.add(normalizeTruckNo(t.truckNo));
     });
 
+    trucks.forEach(tn => grandTrucks.add(tn));
+    grandTrips += trips;
+    grandQty += qty;
+    return { site, trips, qty, fleet: trucks.size };
+  });
+
+  const totalCard = document.createElement('div');
+  totalCard.className = 'site-card total-card';
+  totalCard.style.setProperty('--card-accent', 'var(--loading)');
+  totalCard.innerHTML = `
+    <div class="site-card-title">TOTAL</div>
+    <div class="site-card-row"><span>${modeWord} Trips</span><span class="site-card-value">${grandTrips}</span></div>
+    <div class="site-card-row"><span>${modeWord} Total qty</span><span class="site-card-value">${grandQty.toFixed(2)}<span class="unit"> MT</span></span></div>
+    <div class="site-card-row"><span>Total Fleet</span><span class="site-card-value">${grandTrucks.size}</span></div>
+  `;
+  container.appendChild(totalCard);
+
+  perSite.forEach(({ site, trips, qty, fleet }) => {
     const hue = hashHue(site);
     const card = document.createElement('div');
     card.className = 'site-card';
@@ -836,6 +907,7 @@ function renderSiteCards(){
       <div class="site-card-title" title="${escapeHtml(site)}">${escapeHtml(abbreviateSite(site))}</div>
       <div class="site-card-row"><span>${modeWord} Trips</span><span class="site-card-value">${trips}</span></div>
       <div class="site-card-row"><span>${modeWord} Total qty</span><span class="site-card-value">${qty.toFixed(2)}<span class="unit"> MT</span></span></div>
+      <div class="site-card-row"><span>No. of Fleet</span><span class="site-card-value">${fleet}</span></div>
     `;
     container.appendChild(card);
   });
@@ -862,6 +934,7 @@ function applyFilters(){
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
+    viewToggleBar.style.display = 'none';
     lastReportModel = null;
     return;
   }
@@ -886,6 +959,7 @@ function applyFilters(){
     emptyState.style.display = 'block';
     tableWrap.style.display = 'none';
     tableFooter.style.display = 'none';
+    viewToggleBar.style.display = 'none';
     lastReportModel = null;
     return;
   }
@@ -893,6 +967,7 @@ function applyFilters(){
   emptyState.style.display = 'none';
   tableWrap.style.display = 'block';
   tableFooter.style.display = 'flex';
+  viewToggleBar.style.display = 'flex';
   renderTable(filtered);
 
   const totalLoad = filtered.reduce((s,t) => s + (t.loadingQty || 0), 0);
@@ -902,21 +977,29 @@ function applyFilters(){
 }
 
 /**
- * Builds the pivoted report model behind the table and the PDF export:
- * one row per PARTY, with a repeating group of columns for each site
- * currently in scope, followed by aggregate Total trips / Total qty /
- * Target % columns.
+ * Builds the pivoted report model behind the table and the PDF export.
+ * Same shape either way — a repeating group of columns for each site
+ * currently in scope, followed by aggregate Total trips / Total qty
+ * (and, for the Party pivot only, Target %) columns — but the row
+ * grouping differs by `groupBy`:
+ *
+ *  - groupBy 'party' (Party Wise View, the default): one row per PARTY.
+ *  - groupBy 'date' (Date Wise View): one row per unique DATE in the
+ *    current filter's date field, in chronological order, covering
+ *    every party (Date Wise View has no Target % column).
  *
  * Only the FIRST site column carries Fleet + Target trips — every
  * subsequent site column only carries Trips + Qty. Target trips (site
- * 1 only) = days in range × 4 × unique trucks that party ran at that
- * first site.
+ * 1 only) = <row's own day-span> × 4 × unique trucks that row ran at
+ * that first site. For a Party row the day-span is the full selected
+ * date range; for a Date row it's always a single day, since each row
+ * already represents exactly one day.
  *
- * Target % (per party, and for the grand total) =
+ * Target % (per party row, and for the grand total) =
  * (Total trips ÷ first site's Target trips) × 100, where Total trips
  * is still summed across every site column for that row, but the
  * denominator comes only from the first site — there's no more
- * "Total target trips" aggregate.
+ * "Total target trips" aggregate. Not shown for Date rows.
  *
  * "Sites in scope" is ordered to match the order the user picked
  * sites in the Site filter — so the first column is always whichever
@@ -924,12 +1007,17 @@ function applyFilters(){
  * back to alphabetical order only when "All sites" is chosen (there's
  * no explicit pick order in that case) or for a site present in the
  * data but outside that selection order.
+ *
+ * The grand total row/footer is identical in both views (it summarizes
+ * the same underlying filtered rows either way).
  */
-function buildReportModel(rows){
+function buildReportModel(rows, groupBy){
+  groupBy = groupBy === 'date' ? 'date' : 'party';
   const mode = filterState.mode;
   const qtyField = mode === 'loading' ? 'loadingQty' : 'unloadingQty';
   const qtyLabel = mode === 'loading' ? 'Loading qty' : 'Unloading qty';
   const qtyColorClass = mode === 'loading' ? 'loading-col' : 'unloading-col';
+  const dateField = mode === 'loading' ? 'loadingKey' : 'unloadingKey';
 
   const fromD = filterState.from, toD = filterState.to;
   const fromMid = new Date(fromD.getFullYear(), fromD.getMonth(), fromD.getDate());
@@ -946,13 +1034,14 @@ function buildReportModel(rows){
     sitesInScope = selectedOrder.concat(remaining);
   }
 
-  // party -> site -> { trips, qty, trucks:Set }
-  const partyMap = new Map();
+  // groupKey (party name, or date string) -> site -> { trips, qty, trucks:Set }
+  const keyOf = groupBy === 'date' ? (r => r[dateField] || '(No date)') : (r => r.party || '(No party)');
+  const groupMap = new Map();
   rows.forEach(r => {
-    const party = r.party || '(No party)';
+    const key = keyOf(r);
     const site = r.source || '(No site)';
-    if (!partyMap.has(party)) partyMap.set(party, new Map());
-    const siteMap = partyMap.get(party);
+    if (!groupMap.has(key)) groupMap.set(key, new Map());
+    const siteMap = groupMap.get(key);
     if (!siteMap.has(site)) siteMap.set(site, { trips: 0, qty: 0, trucks: new Set() });
     const cell = siteMap.get(site);
     cell.trips += 1;
@@ -960,14 +1049,21 @@ function buildReportModel(rows){
     if (r.truckNo) cell.trucks.add(normalizeTruckNo(r.truckNo));
   });
 
-  const partyRows = [...partyMap.keys()].sort((a, b) => a.localeCompare(b)).map(party => {
-    const siteMap = partyMap.get(party);
+  const sortedKeys = [...groupMap.keys()].sort((a, b) =>
+    groupBy === 'date' ? (keyToDate(a).getTime() - keyToDate(b).getTime()) : a.localeCompare(b)
+  );
+  // Target trips' day-span: the full range for a Party row, but exactly
+  // one day for a Date row (each Date row already is a single day).
+  const rowDays = groupBy === 'date' ? 1 : days;
+
+  const dataRows = sortedKeys.map(key => {
+    const siteMap = groupMap.get(key);
     const siteCells = sitesInScope.map(site => {
       const c = siteMap.get(site) || { trips: 0, qty: 0, trucks: new Set() };
       return { site, trips: c.trips, qty: c.qty };
     });
 
-    // Fleet = distinct trucks this party ran across EVERY site currently
+    // Fleet = distinct trucks this row ran across EVERY site currently
     // in scope, not just the first site.
     const fleetTrucks = new Set();
     sitesInScope.forEach(site => {
@@ -975,16 +1071,18 @@ function buildReportModel(rows){
       if (c) c.trucks.forEach(t => fleetTrucks.add(t));
     });
     const fleet = fleetTrucks.size;
-    const targetTrips = days * TARGET_TRIPS_PER_TRUCK_PER_DAY * fleet;
+    const targetTrips = rowDays * TARGET_TRIPS_PER_TRUCK_PER_DAY * fleet;
 
     const totalTrips = siteCells.reduce((s, c) => s + c.trips, 0);
     const totalQty = siteCells.reduce((s, c) => s + c.qty, 0);
     const targetPct = targetTrips ? (totalTrips / targetTrips) * 100 : 0;
-    return { party, siteCells, fleet, targetTrips, totalTrips, totalQty, targetPct };
+    return { key, label: key, siteCells, fleet, targetTrips, totalTrips, totalQty, targetPct };
   });
 
-  // Grand total row: Fleet = distinct trucks across ALL parties and ALL
-  // sites in scope (a truck serving multiple parties/sites counted once).
+  // Grand total row: Fleet = distinct trucks across ALL rows and ALL
+  // sites in scope (a truck serving multiple parties/sites/dates counted
+  // once). Identical regardless of groupBy — it summarizes the same
+  // underlying filtered rows either way.
   const totalSiteCells = sitesInScope.map(site => {
     let trips = 0, qty = 0;
     rows.forEach(r => {
@@ -1004,7 +1102,7 @@ function buildReportModel(rows){
   const grandTargetPct = grandTargetTrips ? (grandTrips / grandTargetTrips) * 100 : 0;
 
   return {
-    mode, qtyLabel, qtyColorClass, sitesInScope, partyRows,
+    mode, qtyLabel, qtyColorClass, sitesInScope, groupBy, rows: dataRows,
     totals: {
       siteCells: totalSiteCells,
       fleet: grandFleet,
@@ -1017,27 +1115,30 @@ function buildReportModel(rows){
 }
 
 function renderTable(rows){
-  const model = buildReportModel(rows);
+  const model = buildReportModel(rows, currentView);
   lastReportModel = model;
-  const { qtyLabel, qtyColorClass, sitesInScope } = model;
+  const { qtyLabel, qtyColorClass, sitesInScope, groupBy } = model;
+  const isDateView = groupBy === 'date';
+  const firstColLabel = isDateView ? 'Date' : 'Party name';
 
-  /* ---- HEADER: Party name | [Site group] repeated (1st site: 4 cols, rest: 2 cols) | Totals ×3 ----
+  /* ---- HEADER: [Party name|Date] | [Site group] repeated (1st site: 4 cols, rest: 2 cols) | Totals ----
      There is no spanning "Sites" cell any more — the site name sits directly
-     above only its Trips + Qty columns, and never above Fleet / Target trips. ---- */
+     above only its Trips + Qty columns, and never above Fleet / Target trips.
+     Date Wise View drops the Target % column entirely. ---- */
   const thead = document.getElementById('tableHead');
   thead.innerHTML = '';
 
   const headRow1 = document.createElement('tr');
   headRow1.innerHTML = `
-    <th rowspan="2">Party name</th>
-    <th rowspan="2" class="num group-start">Fleet</th>
+    <th rowspan="2">${firstColLabel}</th>
+    <th rowspan="2" class="num group-start">No. of Fleet</th>
     <th rowspan="2" class="num">Target trips</th>
     ${sitesInScope.map(site => `
       <th colspan="2" class="site-group-header group-start">${escapeHtml(abbreviateSite(site))}</th>
     `).join('')}
     <th rowspan="2" class="num group-start">Total trips</th>
     <th rowspan="2" class="num">Total ${qtyLabel}</th>
-    <th rowspan="2" class="num">Target %</th>
+    ${isDateView ? '' : '<th rowspan="2" class="num">Target Completion %</th>'}
   `;
   thead.appendChild(headRow1);
 
@@ -1048,24 +1149,24 @@ function renderTable(rows){
   `).join('');
   thead.appendChild(headRow2);
 
-  /* ---- BODY: one row per party ---- */
+  /* ---- BODY: one row per party (Party Wise) or per unique date (Date Wise) ---- */
   const body = document.getElementById('tableBody');
   body.innerHTML = '';
-  model.partyRows.forEach(pr => {
-    const hue = hashHue(pr.party);
+  model.rows.forEach(pr => {
+    const hue = hashHue(pr.label);
     const siteCellsHtml = pr.siteCells.map(c => `
       <td class="qty site-val group-start">${c.trips}</td>
       <td class="qty site-val ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
     `).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(pr.party)}</td>
+      <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(pr.label)}</td>
       <td class="qty group-start">${pr.fleet}</td>
       <td class="qty">${pr.targetTrips}</td>
       ${siteCellsHtml}
       <td class="qty group-start">${pr.totalTrips}</td>
       <td class="qty ${qtyColorClass}">${pr.totalQty.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty">${pr.targetPct.toFixed(1)}<span class="unit">%</span></td>
+      ${isDateView ? '' : `<td class="qty">${pr.targetPct.toFixed(1)}<span class="unit">%</span></td>`}
     `;
     body.appendChild(tr);
   });
@@ -1083,7 +1184,7 @@ function renderTable(rows){
       ${totalSiteCellsHtml}
       <td class="qty group-start">${model.totals.trips}</td>
       <td class="qty ${qtyColorClass}">${model.totals.qty.toFixed(2)}<span class="unit">MT</span></td>
-      <td class="qty">${model.totals.targetPct.toFixed(1)}<span class="unit">%</span></td>
+      ${isDateView ? '' : `<td class="qty">${model.totals.targetPct.toFixed(1)}<span class="unit">%</span></td>`}
     </tr>
   `;
 }
@@ -1109,17 +1210,21 @@ function formatDMY(d){
  * Builds jsPDF-autoTable head/body/foot arrays directly from the same
  * report model the on-screen table renders from — so the PDF always
  * matches the interface exactly, column for column, including the
- * "first site only" Fleet/Target trips rule.
+ * "first site only" Fleet/Target trips rule. Works for both views;
+ * Date Wise View's PDF simply omits the Target % column, same as the
+ * frontend.
  *
  * Two header rows only (no spanning "Sites" cell): the site name sits
  * directly above just its Trips + Qty columns, matching the frontend.
  */
 function buildPdfHeadBodyFoot(model){
-  const { sitesInScope, qtyLabel, partyRows, totals } = model;
+  const { sitesInScope, qtyLabel, rows, totals, groupBy } = model;
+  const isDateView = groupBy === 'date';
+  const firstColLabel = isDateView ? 'Date' : 'Party name';
 
   const headRow1 = [
-    { content: 'Party name', rowSpan: 2, styles: { valign: 'middle' } },
-    { content: 'Fleet', rowSpan: 2, styles: { valign: 'middle' } },
+    { content: firstColLabel, rowSpan: 2, styles: { valign: 'middle' } },
+    { content: 'No. of Fleet', rowSpan: 2, styles: { valign: 'middle' } },
     { content: 'Target trips', rowSpan: 2, styles: { valign: 'middle' } }
   ];
   sitesInScope.forEach(site => {
@@ -1127,44 +1232,48 @@ function buildPdfHeadBodyFoot(model){
   });
   headRow1.push(
     { content: 'Total trips', rowSpan: 2, styles: { valign: 'middle' } },
-    { content: 'Total ' + qtyLabel, rowSpan: 2, styles: { valign: 'middle' } },
-    { content: 'Target %', rowSpan: 2, styles: { valign: 'middle' } }
+    { content: 'Total ' + qtyLabel, rowSpan: 2, styles: { valign: 'middle' } }
   );
+  if (!isDateView) headRow1.push({ content: 'Target Completion %', rowSpan: 2, styles: { valign: 'middle' } });
 
   const headRow2 = [];
   sitesInScope.forEach(() => headRow2.push({ content: 'Trips' }, { content: qtyLabel }));
 
   const head = [headRow1, headRow2];
 
-  const body = partyRows.map(pr => {
-    const row = [pr.party, String(pr.fleet), String(pr.targetTrips)];
+  const body = rows.map(pr => {
+    const row = [pr.label, String(pr.fleet), String(pr.targetTrips)];
     pr.siteCells.forEach(c => row.push(String(c.trips), c.qty.toFixed(2) + ' MT'));
-    row.push(String(pr.totalTrips), pr.totalQty.toFixed(2) + ' MT', pr.targetPct.toFixed(1) + '%');
+    row.push(String(pr.totalTrips), pr.totalQty.toFixed(2) + ' MT');
+    if (!isDateView) row.push(pr.targetPct.toFixed(1) + '%');
     return row;
   });
 
   const footRow = ['TOTAL', String(totals.fleet), String(totals.targetTrips)];
   totals.siteCells.forEach(c => footRow.push(String(c.trips), c.qty.toFixed(2) + ' MT'));
-  footRow.push(String(totals.trips), totals.qty.toFixed(2) + ' MT', totals.targetPct.toFixed(1) + '%');
+  footRow.push(String(totals.trips), totals.qty.toFixed(2) + ' MT');
+  if (!isDateView) footRow.push(totals.targetPct.toFixed(1) + '%');
 
   return { head, body, foot: [footRow] };
 }
 
-function computePdfReduceMap(numSites){
-  const map = [false, false, true]; // Party name, Fleet, Target trips*
+function computePdfReduceMap(numSites, includeTargetPct){
+  const map = [false, false, true]; // First col, Fleet, Target trips*
   for (let i = 0; i < numSites; i++){
     map.push(false, true); // Trips, Qty*  (each site)
   }
-  map.push(true, true, true); // Total trips*, Total qty*, Target %*
+  map.push(true, true); // Total trips*, Total qty*
+  if (includeTargetPct) map.push(true); // Target %*
   return map;
 }
 
-function computePdfIsSiteColumn(numSites){
-  const map = [false, false, false]; // Party name, Fleet, Target trips
+function computePdfIsSiteColumn(numSites, includeTargetPct){
+  const map = [false, false, false]; // First col, Fleet, Target trips
   for (let i = 0; i < numSites; i++){
     map.push(true, true); // Trips, Qty — site columns
   }
-  map.push(false, false, false); // Total trips, Total qty, Target %
+  map.push(false, false); // Total trips, Total qty
+  if (includeTargetPct) map.push(false); // Target %
   return map;
 }
 // Mirrors --site-head-bg / --site-val-bg / --other-head-bg / --other-val-bg
@@ -1187,10 +1296,11 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   }
 
   const { jsPDF } = window.jspdf;
+  const isDateView = lastReportModel.groupBy === 'date';
   const { head, body, foot } = buildPdfHeadBodyFoot(lastReportModel);
   const numCols = body[0] ? body[0].length : 4;
-  const reduceMap = computePdfReduceMap(lastReportModel.sitesInScope.length);
-  const isSiteCol = computePdfIsSiteColumn(lastReportModel.sitesInScope.length);
+  const reduceMap = computePdfReduceMap(lastReportModel.sitesInScope.length, !isDateView);
+  const isSiteCol = computePdfIsSiteColumn(lastReportModel.sitesInScope.length, !isDateView);
 
   const sharedTableOptions = {
     theme: 'grid',
@@ -1267,6 +1377,7 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
     ? `${formatDMY(filterState.from)} – ${formatDMY(filterState.to)}`
     : 'All dates';
   const modeLabel = filterState.mode === 'loading' ? 'Loading' : filterState.mode === 'unloading' ? 'Unloading' : '—';
+  const viewLabel = isDateView ? 'Date Wise' : 'Party Wise';
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
@@ -1287,7 +1398,7 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   doc.setTextColor(84, 98, 107);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(`Mode: ${modeLabel}`, 40, 102);
+  doc.text(`Mode: ${modeLabel}    View: ${viewLabel}`, 40, 102);
 
   doc.autoTable(Object.assign({}, sharedTableOptions, {
     head, body, foot,
@@ -1298,7 +1409,8 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   }));
 
   const fileDate = new Date().toISOString().slice(0, 10);
-  doc.save(`transporting-report_${fileDate}.pdf`);
+  const viewSlug = isDateView ? 'date-wise' : 'party-wise';
+  doc.save(`transporting-report_${viewSlug}_${fileDate}.pdf`);
 });
 
 /* =================================================================
