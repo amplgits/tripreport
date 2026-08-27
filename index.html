@@ -1372,9 +1372,11 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
     columnStyles[i] = { cellWidth: reduceMap[i] ? naturalWidths[i] * 0.65 : naturalWidths[i] };
   }
 
-    // Date Wise View only: shrink the Date column (column 0) to half its natural width.
+    // Date Wise View only: shrink the Date column (column 0) and the
+  // No. of Fleet column (column 1) to half their natural width each.
   if (isDateView){
     columnStyles[0].cellWidth = naturalWidths[0] * 0.5;
+    columnStyles[1].cellWidth = naturalWidths[1] * 0.5;
   }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
