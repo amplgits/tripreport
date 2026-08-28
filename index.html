@@ -1308,12 +1308,22 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
 
   const sharedTableOptions = {
     theme: 'grid',
+    // Top/bottom page margins removed (left/right untouched) so a full
+    // month of Date Wise rows has the best chance of landing on one
+    // page instead of spilling onto a second. This governs both the
+    // measurement pass and the real export below, since both spread
+    // from sharedTableOptions.
+    margin: { top: 0, bottom: 0, left: 40, right: 40 },
     styles: {
-      fontSize: 7.5, cellPadding: 4, textColor: [16, 24, 32],
+      // Body/footer text and padding shrunk (was 7.5 / 4) to fit more
+      // rows per page. Header font size + padding are pinned back to
+      // the original values in headStyles below, so column headers
+      // are unchanged.
+      fontSize: 6, cellPadding: 3, textColor: [16, 24, 32],
       lineWidth: 0.5, lineColor: [140, 150, 150] // explicit grid lines so every cell is boxed, matching the frontend
     },
     headStyles: {
-      fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold', fontSize: 7.5,
+      fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold', fontSize: 7.5, cellPadding: 4,
       lineWidth: 0.5, lineColor: [140, 150, 150], halign: 'center'
     },
     alternateRowStyles: { fillColor: [247, 249, 248] },
