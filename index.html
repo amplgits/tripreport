@@ -242,17 +242,18 @@ button,.chip,.ms-trigger,.field select,.field input,.theme-toggle{
   -webkit-overflow-scrolling:touch;
 }
 table{border-collapse:collapse; font-size:13.5px; table-layout:auto;}
+.table-wrap{border:2px solid #000;}
 thead{position:sticky; top:0; z-index:5;}
 thead th{
   text-align:left; padding:11px 14px; font-size:10px; font-weight:700; letter-spacing:.8px;
-  text-transform:uppercase; color:var(--ink-faint); background:var(--other-head-bg);
-  border:1px solid var(--line); white-space:normal; word-break:normal; overflow-wrap:normal; line-height:1.35;
+  text-transform:uppercase; color:#000; background:var(--other-head-bg);
+  border:1px solid #000; white-space:normal; word-break:normal; overflow-wrap:normal; line-height:1.35;
   vertical-align:middle;
 }
 thead th.num{text-align:right;}
 thead th.center{text-align:center;}
 thead th.site-group-header{
-  background:var(--site-head-bg); color:var(--ink-soft); font-size:11px; letter-spacing:.5px;
+  background:var(--site-head-bg); color:#000; font-size:11px; letter-spacing:.5px;
   text-align:center;
 }
 thead tr:nth-child(2) th{
@@ -261,8 +262,8 @@ thead tr:nth-child(2) th{
 thead tr:first-child th:first-child{
   background:var(--party-head-bg);
 }
-.group-start{border-left:2px solid var(--line-strong) !important;}
-tbody td, tfoot td{padding:11px 14px; border:1px solid var(--line); vertical-align:middle; white-space:nowrap;}
+.group-start{border-left:2px solid #000 !important;}
+tbody td, tfoot td{padding:11px 14px; border:1px solid #000; vertical-align:middle; white-space:nowrap;}
 tbody tr:hover td{background:var(--surface-alt);}
 .party-cell{
   font-weight:600; font-size:13.5px; border-left:3px solid transparent; position:relative;
@@ -278,7 +279,7 @@ tbody tr:hover td{background:var(--surface-alt);}
 
 tfoot td{
   font-weight:700; background:var(--surface-alt);
-  border-top:2px solid var(--line-strong);
+  border-top:2px solid #000;
 }
 tfoot .total-label{
   font-family:var(--font-display); letter-spacing:.5px; font-size:13px;
@@ -402,6 +403,17 @@ tfoot .total-label{
             </div>
           </div>
         </div>
+        <div class="field">
+          <label>Fleet No.</label>
+          <div class="multiselect" id="fleetMultiselect">
+            <button type="button" class="ms-trigger disabled" id="fleetTrigger">Select a site first</button>
+            <div class="ms-panel" id="fleetPanel">
+              <div class="ms-search"><input type="text" id="fleetSearch" placeholder="Search fleet no…"></div>
+              <label class="ms-all"><input type="checkbox" id="fleetAllCb"> All fleets</label>
+              <div class="ms-list" id="fleetList"></div>
+            </div>
+          </div>
+        </div>
       </div>
       <div class="filter-row">
         <div class="site-cards" id="siteCards"></div>
@@ -493,6 +505,52 @@ function normalizeTruckNo(raw){
   return String(raw || '').toUpperCase().replace(/[\s\-.\/]+/g, '');
 }
 
+/**
+ * Abbreviates a Party name to initials, e.g.
+ *   "BABA CHANDRACHUR TRANSPORT & CIVIL CONTRACTOR" -> "B.C.T.C.C."
+ *   "TILOTAMA RELIABLE ENTERPRISES(PROP-TILOTAMA MISHRA)" -> "T.R.E.(P-T.M.)"
+ * Rule: the name is split into "word-run" segments separated by the
+ * delimiter characters ( ) and -, which are kept as-is. Each word-run
+ * becomes its words' initials joined by ".". A trailing "." is added
+ * after a run's initials UNLESS the run is immediately followed by a
+ * "-" delimiter (so "PROP-TILOTAMA MISHRA" becomes "P-T.M." not
+ * "P.-T.M."). Non-letter "words" (like a bare "&") are dropped.
+ */
+function abbreviatePartyRun(text){
+  const words = text.trim().split(/\s+/)
+    .map(w => w.replace(/[^A-Za-z]/g, ''))
+    .filter(Boolean);
+  return words.map(w => w[0].toUpperCase()).join('.');
+}
+function abbreviateParty(name){
+  const str = String(name || '');
+  if (!str.trim()) return str;
+  const tokens = [];
+  let buf = '';
+  for (const ch of str){
+    if (ch === '(' || ch === ')' || ch === '-'){
+      if (buf.trim()) tokens.push({ type: 'run', text: buf });
+      buf = '';
+      tokens.push({ type: 'delim', text: ch });
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf.trim()) tokens.push({ type: 'run', text: buf });
+
+  let out = '';
+  tokens.forEach((t, i) => {
+    if (t.type === 'delim'){ out += t.text; return; }
+    let seg = abbreviatePartyRun(t.text);
+    if (!seg) return;
+    const next = tokens[i + 1];
+    const followedByDash = next && next.type === 'delim' && next.text === '-';
+    if (!followedByDash) seg += '.';
+    out += seg;
+  });
+  return out || str;
+}
+
 /* =================================================================
    APP MANIFEST (mobile "Add to Home Screen" / standalone launch)
    ================================================================= */
@@ -521,12 +579,14 @@ function normalizeTruckNo(raw){
 let allTrips = [];
 let uniqueSites = [];
 let uniqueParties = []; // scoped to the currently selected site(s)
+let uniqueFleets = [];  // scoped to the currently selected site(s) — normalized truck numbers
 let lastReportModel = null; // the pivoted table data behind the current render, reused by the PDF export
 let currentView = 'party';  // 'party' (Party Wise View) or 'date' (Date Wise View) — which pivot is on screen
 const filterState = {
   from: null, to: null, mode: null,
   sites: new Set(),            // empty = nothing picked yet; 'ALL' = every site
-  parties: new Set()           // empty = nothing picked yet; 'ALL' = every party in scope
+  parties: new Set(),          // empty = nothing picked yet; 'ALL' = every party in scope
+  fleets: new Set()            // empty = nothing picked yet; 'ALL' = every fleet/truck in scope
 };
 
 /* =================================================================
@@ -682,6 +742,15 @@ function onSiteSelectionChanged(){
   renderPartyList(partySearch.value);
   updatePartyTriggerLabel();
   updatePartyEnabledState();
+
+  computeFleetOptionsForSites();
+  // default to "all fleets" within the newly selected site scope
+  filterState.fleets = uniqueFleets.length ? new Set(['ALL']) : new Set();
+  fleetAllCb.checked = filterState.fleets.has('ALL');
+  renderFleetList(fleetSearch.value);
+  updateFleetTriggerLabel();
+  updateFleetEnabledState();
+
   applyFilters();
 }
 
@@ -763,6 +832,86 @@ function updatePartyEnabledState(){
 }
 
 /* =================================================================
+   FLEET NO. MULTISELECT (options scoped to the selected site(s))
+   Selecting fleet(s) restricts the Party Wise / Date Wise table to
+   trips run by those trucks only — everything else about the pivot
+   (site columns, totals, PDF export) works exactly the same.
+   ================================================================= */
+const fleetTrigger = document.getElementById('fleetTrigger');
+const fleetPanel = document.getElementById('fleetPanel');
+const fleetList = document.getElementById('fleetList');
+const fleetAllCb = document.getElementById('fleetAllCb');
+const fleetSearch = document.getElementById('fleetSearch');
+
+fleetTrigger.addEventListener('click', () => {
+  if (filterState.sites.size === 0) return; // pick a site first
+  fleetPanel.classList.toggle('open');
+});
+document.addEventListener('click', (e) => {
+  if (!document.getElementById('fleetMultiselect').contains(e.target)) fleetPanel.classList.remove('open');
+});
+
+function computeFleetOptionsForSites(){
+  const fleets = new Set();
+  allTrips.forEach(t => {
+    if (!t.truckNo) return;
+    if (filterState.sites.has('ALL') || filterState.sites.has(t.source)) fleets.add(normalizeTruckNo(t.truckNo));
+  });
+  uniqueFleets = [...fleets].sort();
+}
+
+function renderFleetList(filterText){
+  const q = (filterText || '').trim().toUpperCase();
+  fleetList.innerHTML = '';
+  const isAll = filterState.fleets.has('ALL');
+  const matches = uniqueFleets.filter(f => f.toUpperCase().includes(q));
+  if (!matches.length){
+    fleetList.innerHTML = `<div class="ms-empty">${filterState.sites.size === 0 ? 'Select a site first' : 'No fleets match'}</div>`;
+    return;
+  }
+  matches.forEach(fleet => {
+    const row = document.createElement('label');
+    row.className = 'ms-item' + (isAll ? ' disabled' : '');
+    const checked = !isAll && filterState.fleets.has(fleet);
+    row.innerHTML = `<input type="checkbox" data-fleet="${escapeHtml(fleet)}" ${checked ? 'checked' : ''}> ${escapeHtml(fleet)}`;
+    fleetList.appendChild(row);
+  });
+  fleetList.querySelectorAll('input[data-fleet]').forEach(cb => {
+    cb.addEventListener('change', () => {
+      const f = cb.getAttribute('data-fleet');
+      if (cb.checked) filterState.fleets.add(f); else filterState.fleets.delete(f);
+      filterState.fleets.delete('ALL');
+      updateFleetTriggerLabel();
+      applyFilters();
+    });
+  });
+}
+fleetAllCb.addEventListener('change', () => {
+  if (fleetAllCb.checked){
+    filterState.fleets = new Set(['ALL']);
+  } else {
+    filterState.fleets = new Set();
+  }
+  renderFleetList(fleetSearch.value);
+  updateFleetTriggerLabel();
+  applyFilters();
+});
+fleetSearch.addEventListener('input', () => renderFleetList(fleetSearch.value));
+
+function updateFleetTriggerLabel(){
+  if (filterState.sites.size === 0) fleetTrigger.textContent = 'Select a site first';
+  else if (filterState.fleets.has('ALL')) fleetTrigger.textContent = 'All fleets';
+  else if (filterState.fleets.size === 0) fleetTrigger.textContent = 'No fleets selected';
+  else if (filterState.fleets.size === 1) fleetTrigger.textContent = [...filterState.fleets][0];
+  else fleetTrigger.textContent = filterState.fleets.size + ' fleets selected';
+}
+function updateFleetEnabledState(){
+  const enabled = filterState.sites.size > 0;
+  fleetTrigger.classList.toggle('disabled', !enabled);
+  if (!enabled) fleetPanel.classList.remove('open');
+}
+
+/* =================================================================
    PARTY WISE / DATE WISE VIEW TOGGLE
    Only one of the two pivoted tables is on screen at a time; switching
    just re-runs the same filtered data through the other pivot.
@@ -790,9 +939,12 @@ document.getElementById('clearBtn').addEventListener('click', () => {
   setMode(null);
   filterState.sites = new Set(); siteAllCb.checked = false;
   filterState.parties = new Set(); partyAllCb.checked = false;
+  filterState.fleets = new Set(); fleetAllCb.checked = false;
   renderSiteList(''); updateSiteTriggerLabel();
   uniqueParties = [];
   renderPartyList(''); updatePartyTriggerLabel(); updatePartyEnabledState();
+  uniqueFleets = [];
+  renderFleetList(''); updateFleetTriggerLabel(); updateFleetEnabledState();
   applyFilters();
 });
 document.getElementById('refreshBtn').addEventListener('click', loadData);
@@ -825,6 +977,11 @@ function computeFilterOptions(){
   renderPartyList(partySearch.value);
   updatePartyTriggerLabel();
   updatePartyEnabledState();
+
+  computeFleetOptionsForSites();
+  renderFleetList(fleetSearch.value);
+  updateFleetTriggerLabel();
+  updateFleetEnabledState();
 
   renderSiteCards();
 }
@@ -950,6 +1107,7 @@ function applyFilters(){
     if (ms < fromMs || ms > toMs) return false;
     if (!filterState.sites.has('ALL') && !filterState.sites.has(t.source)) return false;
     if (!filterState.parties.has('ALL') && !filterState.parties.has(t.party)) return false;
+    if (!filterState.fleets.has('ALL') && !filterState.fleets.has(normalizeTruckNo(t.truckNo))) return false;
     return true;
   });
 
@@ -1076,7 +1234,10 @@ function buildReportModel(rows, groupBy){
     const totalTrips = siteCells.reduce((s, c) => s + c.trips, 0);
     const totalQty = siteCells.reduce((s, c) => s + c.qty, 0);
     const targetPct = targetTrips ? (totalTrips / targetTrips) * 100 : 0;
-    return { key, label: key, siteCells, fleet, targetTrips, totalTrips, totalQty, targetPct };
+    // Party Wise rows show an abbreviated Party name (full name kept as
+    // a tooltip); Date Wise rows are dates, so the label is left as-is.
+    const label = groupBy === 'party' ? abbreviateParty(key) : key;
+    return { key, label, fullLabel: key, siteCells, fleet, targetTrips, totalTrips, totalQty, targetPct };
   });
 
   // Grand total row: Fleet = distinct trucks across ALL rows and ALL
@@ -1153,14 +1314,14 @@ function renderTable(rows){
   const body = document.getElementById('tableBody');
   body.innerHTML = '';
   model.rows.forEach(pr => {
-    const hue = hashHue(pr.label);
+    const hue = hashHue(pr.fullLabel);
     const siteCellsHtml = pr.siteCells.map(c => `
       <td class="qty site-val group-start">${c.trips}</td>
       <td class="qty site-val ${qtyColorClass}">${c.qty.toFixed(2)}<span class="unit">MT</span></td>
     `).join('');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)">${escapeHtml(pr.label)}</td>
+      <td class="party-cell" style="border-left-color:hsl(${hue},55%,45%)" title="${escapeHtml(pr.fullLabel)}">${escapeHtml(pr.label)}</td>
       <td class="qty group-start">${pr.fleet}</td>
       ${isDateView ? '' : `<td class="qty">${pr.targetTrips}</td>`}
       ${siteCellsHtml}
@@ -1320,16 +1481,16 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
       // the original values in headStyles below, so column headers
       // are unchanged.
       fontSize: 6, cellPadding: 3, textColor: [16, 24, 32],
-      lineWidth: 0.5, lineColor: [140, 150, 150] // explicit grid lines so every cell is boxed, matching the frontend
+      lineWidth: 0.5, lineColor: [0, 0, 0] // explicit grid lines so every cell is boxed, matching the frontend
     },
     headStyles: {
       fillColor: [231, 236, 235], textColor: [16, 24, 32], fontStyle: 'bold', fontSize: 7.5, cellPadding: 4,
-      lineWidth: 0.5, lineColor: [140, 150, 150], halign: 'center'
+      lineWidth: 0.5, lineColor: [0, 0, 0], halign: 'center'
     },
     alternateRowStyles: { fillColor: [247, 249, 248] },
     footStyles: {
       fillColor: [222, 229, 227], textColor: [16, 24, 32], fontStyle: 'bold',
-      lineWidth: 0.5, lineColor: [140, 150, 150]
+      lineWidth: 0.5, lineColor: [0, 0, 0]
     },
     columnStyles: { 0: { cellWidth: 110 } }, // Party name a bit wider; unchanged, exactly as before
     didParseCell: (data) => {
@@ -1387,6 +1548,10 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   if (isDateView){
     columnStyles[0].cellWidth = naturalWidths[0] * 0.5;
     columnStyles[1].cellWidth = naturalWidths[1] * 0.5;
+  } else {
+    // Party Wise View only: shrink the Party name column (column 0) by
+    // 40% of its natural width (i.e. down to 60% of current).
+    columnStyles[0].cellWidth = naturalWidths[0] * 0.6;
   }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
@@ -1403,6 +1568,11 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
     : 'All dates';
   const modeLabel = filterState.mode === 'loading' ? 'Loading' : filterState.mode === 'unloading' ? 'Unloading' : '—';
   const viewLabel = isDateView ? 'Date Wise' : 'Party Wise';
+  const fleetLabel = filterState.fleets.has('ALL') || filterState.fleets.size === 0
+    ? 'All Fleets'
+    : filterState.fleets.size <= 4
+      ? [...filterState.fleets].join(', ')
+      : filterState.fleets.size + ' fleets';
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
@@ -1423,7 +1593,7 @@ document.getElementById('pdfBtn').addEventListener('click', () => {
   doc.setTextColor(84, 98, 107);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(10);
-  doc.text(`Mode: ${modeLabel}    View: ${viewLabel}`, 40, 102);
+  doc.text(`Mode: ${modeLabel}    View: ${viewLabel}    Fleet: ${fleetLabel}`, 40, 102);
 
   doc.autoTable(Object.assign({}, sharedTableOptions, {
     head, body, foot,
