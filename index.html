@@ -992,8 +992,8 @@ function computeFilterOptions(){
 /**
  * One TOTAL card (summing across every currently SELECTED site) followed
  * by one card per selected site, each showing Trip Count, Quantity, and
- * Fleet (distinct truck count) — always covering every party at that
- * site regardless of the Party filter.
+ * Fleet (distinct truck count) — reflecting the currently selected
+ * Party name and Fleet No. filters as well.
  *
  * Cards require a full date range (From + To), a Mode, AND at least
  * one Site to be selected. Until then, no cards render at all.
@@ -1033,6 +1033,8 @@ function renderSiteCards(){
       if (!key) return;
       const ms = keyToDate(key).getTime();
       if (ms < fromMs || ms > toMs) return;
+      if (!filterState.parties.has('ALL') && !filterState.parties.has(t.party)) return;
+      if (!filterState.fleets.has('ALL') && !filterState.fleets.has(normalizeTruckNo(t.truckNo))) return;
       trips += 1;
       qty += (t[qtyField] || 0);
       if (t.truckNo) trucks.add(normalizeTruckNo(t.truckNo));
